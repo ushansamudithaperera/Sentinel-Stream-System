@@ -161,16 +161,143 @@ const FEATURES = [
 ];
 
 // â”€â”€ Animated neutralized-threat counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function ThreatCounter() {
-  const [count, setCount] = useState(14892);
+function RadarScanner() {
+  return (
+    <svg
+      className="absolute left-1/2 -translate-x-1/2 pointer-events-none select-none"
+      style={{ top: '-80px', zIndex: 0 }}
+      width="700" height="700" viewBox="0 0 680 680" fill="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#0891b2" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#0891b2" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="340" cy="340" r="330" fill="url(#centerGlow)" />
+      {[70, 140, 210, 280, 330].map((r, i) => (
+        <circle key={i} cx="340" cy="340" r={r} stroke="#22d3ee" strokeWidth="0.8" opacity={0.04 + i * 0.025} />
+      ))}
+      <line x1="340" y1="10" x2="340" y2="670" stroke="#22d3ee" strokeWidth="0.5" opacity="0.07" strokeDasharray="3 9" />
+      <line x1="10" y1="340" x2="670" y2="340" stroke="#22d3ee" strokeWidth="0.5" opacity="0.07" strokeDasharray="3 9" />
+      <line x1="105" y1="105" x2="575" y2="575" stroke="#22d3ee" strokeWidth="0.5" opacity="0.04" strokeDasharray="3 9" />
+      <line x1="575" y1="105" x2="105" y2="575" stroke="#22d3ee" strokeWidth="0.5" opacity="0.04" strokeDasharray="3 9" />
+      {/* Rotating sweep — uses CSS class for transform-origin support */}
+      <g className="radar-sweep">
+        <path d="M340,340 L340,12 A328,328 0 0,1 600,492 Z" fill="#22d3ee" opacity="0.07" />
+        <line x1="340" y1="340" x2="340" y2="14" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+      </g>
+      {/* Blip 1 — red threat */}
+      <circle cx="462" cy="186" r="4" fill="#ef4444" opacity="0">
+        <animate attributeName="opacity" values="0;0;1;0.7;0.3;0" keyTimes="0;0.25;0.28;0.50;0.75;1" dur="5s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="462" cy="186" r="4" fill="none" stroke="#ef4444" strokeWidth="1.2" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0;0" keyTimes="0;0.25;0.30;0.50;1" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="r"       values="4;4;16;26;26"  keyTimes="0;0.25;0.32;0.52;1" dur="5s" repeatCount="indefinite" />
+      </circle>
+      {/* Blip 2 — orange threat */}
+      <circle cx="234" cy="440" r="3.5" fill="#f97316" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.9;0.5;0.2;0" keyTimes="0;0.58;0.61;0.75;0.88;1" dur="5s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="234" cy="440" r="3.5" fill="none" stroke="#f97316" strokeWidth="1" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.5;0;0" keyTimes="0;0.58;0.63;0.78;1" dur="5s" repeatCount="indefinite" />
+        <animate attributeName="r"       values="3.5;3.5;14;22;22" keyTimes="0;0.58;0.65;0.78;1" dur="5s" repeatCount="indefinite" />
+      </circle>
+      {/* Static friendly blip */}
+      <circle cx="490" cy="355" r="3" fill="#22d3ee" opacity="0.3" />
+      <circle cx="490" cy="355" r="3" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.15">
+        <animate attributeName="r"       values="3;9;3"     dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.15;0;0.15" dur="3s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+  );
+}
+
+const TERMINAL_LINES = [
+  [{ text: '// Initializing detection engine...', cls: 'text-gray-600' }],
+  [{ text: '[INFO] ', cls: 'text-cyan-400' }, { text: 'EWMA baseline established',         cls: 'text-green-400' }],
+  [{ text: '[INFO] ', cls: 'text-cyan-400' }, { text: 'Anomaly detection now active',       cls: 'text-green-400' }],
+  [{ text: '[ALERT] ', cls: 'text-red-400' }, { text: 'Rate 820 pps — 5.2x above avg 157', cls: 'text-white' }],
+  [{ text: '[ALERT] ', cls: 'text-red-400' }, { text: '98% certain: DDoS Attack', cls: 'text-white font-bold' }, { text: ' — saved to MongoDB', cls: 'text-gray-500' }],
+  [{ text: '[STATUS] ', cls: 'text-green-400' }, { text: 'IP 45.33.32.156 blocked. ✓', cls: 'text-green-300' }],
+];
+
+function AnimatedTerminal() {
+  const [lineCount, setLineCount] = useState(0);
+  const [cycle, setCycle]         = useState(0);
+
   useEffect(() => {
-    const t = setInterval(() => setCount(c => c + Math.floor(Math.random() * 3) + 1), 1800);
-    return () => clearInterval(t);
-  }, []);
-  return <span className="text-red-300 font-bold tabular-nums">{count.toLocaleString()}</span>;
+    setLineCount(0);
+    const timers = TERMINAL_LINES.map((_, i) =>
+      setTimeout(() => setLineCount(i + 1), 350 + i * 700)
+    );
+    timers.push(
+      setTimeout(() => setCycle(c => c + 1), 350 + TERMINAL_LINES.length * 700 + 2400)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [cycle]);
+
+  return (
+    <div className="p-5 font-mono text-sm leading-7 min-h-[200px]">
+      {TERMINAL_LINES.slice(0, lineCount).map((parts, i) => (
+        <p key={`${cycle}-${i}`} className="animate-terminal-line">
+          {parts.map((part, j) => (
+            <span key={j} className={part.cls}>{part.text}</span>
+          ))}
+        </p>
+      ))}
+      <span className="text-cyan-400 animate-pulse">&#x258C;</span>
+    </div>
+  );
 }
 
 // â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const MATRIX_COLS = [
+  { left: '3%',  text: ['FF','A3','78','0E','C2','91','3D','B8','22','6F'], dur: '9s',   delay: '0s'   },
+  { left: '11%', text: ['22','D3','EE','06','B2','D5','88','14','5A','C0'], dur: '7s',   delay: '2.1s' },
+  { left: '20%', text: ['EF','44','F9','73','16','84','04','AB','CD','01'], dur: '10s',  delay: '0.8s' },
+  { left: '31%', text: ['00','FF','41','12','3F','A0','CE','77','8B','E3'], dur: '8.5s', delay: '3.4s' },
+  { left: '43%', text: ['1B','60','7D','2E','B9','55','F1','39','0A','CC'], dur: '7.5s', delay: '1.5s' },
+  { left: '55%', text: ['C8','3E','AA','62','19','FE','30','7C','D4','0B'], dur: '9.5s', delay: '4s'   },
+  { left: '67%', text: ['4A','D0','7F','93','28','E5','6B','16','F2','89'], dur: '8s',   delay: '0.5s' },
+  { left: '78%', text: ['97','2C','B4','51','F8','3A','69','15','44','D7'], dur: '7.5s', delay: '2.8s' },
+  { left: '89%', text: ['11','CC','87','45','D9','6E','23','BC','50','9E'], dur: '10s',  delay: '1s'   },
+  { left: '95%', text: ['5E','A1','C3','72','0D','B5','38','F0','8C','27'], dur: '8s',   delay: '3.1s' },
+];
+
+function MatrixRain({ color = '#22d3ee', opacity = 1 }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden style={{ opacity }}>
+      {MATRIX_COLS.map((col, i) => (
+        <div
+          key={i}
+          className="absolute top-0 flex flex-col items-center font-mono text-[11px] leading-5"
+          style={{ left: col.left, animation: `matrix-fall ${col.dur} linear infinite`, animationDelay: col.delay }}
+        >
+          {col.text.map((c, j) => (
+            <span key={j} style={{ color, opacity: Math.max(0.04, 0.6 - j * 0.06) }}>{c}</span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PulseRings() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" aria-hidden>
+      {[0, 1, 2, 3].map(i => (
+        <div
+          key={i}
+          className="absolute rounded-full border border-red-500/20"
+          style={{ width: 80, height: 80, animation: 'ring-pulse 4s ease-out infinite', animationDelay: `${i}s` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
@@ -219,22 +346,15 @@ export default function Home() {
         {/* Glow orb */}
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Radar rings */}
-        <div className="absolute top-28 left-1/2 pointer-events-none" aria-hidden>
-          <div className="absolute rounded-full border border-cyan-500/30 -translate-x-1/2 -translate-y-1/2 animate-ping"
-            style={{ width: 160, height: 160, animationDuration: '2s' }} />
-          <div className="absolute rounded-full border border-cyan-500/15 -translate-x-1/2 -translate-y-1/2 animate-ping"
-            style={{ width: 300, height: 300, animationDuration: '3s', animationDelay: '0.7s' }} />
-          <div className="absolute rounded-full border border-cyan-400/8 -translate-x-1/2 -translate-y-1/2 animate-ping"
-            style={{ width: 460, height: 460, animationDuration: '4.5s', animationDelay: '1.4s' }} />
-        </div>
+        {/* Radar scanner */}
+        <RadarScanner />
 
         {/* Floating threat IPs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
           {PARTICLES.map((p, i) => (
             <span
               key={i}
-              className="absolute bottom-8 font-mono text-xs text-cyan-500/30"
+              className={`absolute bottom-8 font-mono text-[10px] font-semibold ${p.label === 'DDoS' ? 'text-red-500/40' : p.label === 'BF' ? 'text-orange-500/40' : 'text-yellow-500/40'}`}
               style={{ left: p.left, animation: `float-up ${p.dur} ease-in infinite`, animationDelay: p.delay }}
             >
               {p.ip}&nbsp;[{p.label}]
@@ -243,32 +363,26 @@ export default function Home() {
         </div>
 
         {/* Badge */}
-        <span className="relative mb-5 inline-block text-xs font-bold tracking-widest text-cyan-400 uppercase border border-cyan-800 px-3 py-1 rounded-full bg-cyan-950/50">
+        <span style={{ animation: 'fade-up 0.6s ease-out 0.1s both' }} className="relative mb-5 inline-block text-xs font-bold tracking-widest text-cyan-400 uppercase border border-cyan-800 px-3 py-1 rounded-full bg-cyan-950/50">
           AI-Powered Cybersecurity Platform
         </span>
 
-        {/* Live counter */}
-        <div className="relative mb-6 inline-flex items-center gap-2 px-4 py-2 bg-red-950/30 border border-red-900/50 rounded-full font-mono text-sm text-gray-400">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <ThreatCounter />&nbsp;threats neutralized this session
-        </div>
-
         {/* Headline with glitch */}
-        <h1 className="relative text-5xl md:text-7xl font-extrabold leading-tight mb-6">
+        <h1 style={{ animation: 'fade-up 0.7s ease-out 0.35s both' }} className="relative text-5xl md:text-7xl font-extrabold leading-tight mb-6">
           <span className="glitch" data-text="Defend. Detect.">Defend. Detect.</span>{' '}
           <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             Dominate.
           </span>
         </h1>
 
-        <p className="relative max-w-2xl text-lg text-gray-400 mb-10 leading-relaxed">
+        <p style={{ animation: 'fade-up 0.7s ease-out 0.6s both' }} className="relative max-w-2xl text-lg text-gray-400 mb-10 leading-relaxed">
           Sentinel-Stream is a real-time network intrusion detection system. It streams live traffic,
           learns your baseline, and flags DDoS attacks, brute-force attempts, and zero-day anomalies &mdash;
 
           all in under a second.
         </p>
 
-        <div className="relative flex flex-wrap gap-4 justify-center">
+        <div style={{ animation: 'fade-up 0.7s ease-out 0.8s both' }} className="relative flex flex-wrap gap-4 justify-center">
           <Link to="/login" className="px-8 py-4 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold text-lg transition-all shadow-lg shadow-cyan-500/30 hover:shadow-cyan-400/50">
             Enter War Room &rarr;
           </Link>
@@ -278,21 +392,14 @@ export default function Home() {
         </div>
 
         {/* Terminal preview */}
-        <div className="relative mt-16 w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-2xl shadow-black/60 text-left">
+        <div style={{ animation: 'fade-up 0.8s ease-out 1.05s both' }} className="relative mt-16 w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-2xl shadow-black/60 text-left">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 border-b border-gray-700">
             <span className="w-3 h-3 rounded-full bg-red-500" />
             <span className="w-3 h-3 rounded-full bg-yellow-500" />
             <span className="w-3 h-3 rounded-full bg-green-500" />
             <span className="ml-2 text-xs text-gray-400 font-mono">detection-engine.js</span>
           </div>
-          <div className="p-5 font-mono text-sm leading-7 text-green-400">
-            <p><span className="text-gray-500">{'// '}</span>Learning baseline... <span className="text-yellow-400 animate-pulse">&#x258C;</span></p>
-            <p><span className="text-cyan-400">[INFO]</span> EWMA baseline established</p>
-            <p><span className="text-cyan-400">[INFO]</span> Active detection enabled</p>
-            <p><span className="text-red-400">[ALERT]</span> Rate 820 is 5.2x above avg 157</p>
-            <p><span className="text-red-400">[ALERT]</span> <span className="text-white font-bold">98% certain: DDoS Attack</span> &mdash; saved to MongoDB</p>
-            <p><span className="text-green-400">[STATUS]</span> IP blocked. Threat logged. &#10003;</p>
-          </div>
+          <AnimatedTerminal />
         </div>
       </section>
 
@@ -361,8 +468,9 @@ export default function Home() {
       </section>
 
       {/* â”€â”€ Features â”€â”€ */}
-      <section id="features" className="relative z-10 py-24 px-6">
-        <div className="max-w-6xl mx-auto">
+      <section id="features" className="relative z-10 py-24 px-6 overflow-hidden">
+        <MatrixRain opacity={0.35} />
+        <div className="max-w-6xl mx-auto relative">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
             Industry-Level Security, <span className="text-cyan-400">Out of the Box</span>
           </h2>
@@ -386,8 +494,21 @@ export default function Home() {
       </section>
 
       {/* â”€â”€ CTA â”€â”€ */}
-      <section className="relative z-10 py-24 px-6 text-center">
-        <div className="max-w-2xl mx-auto">
+      <section className="relative z-10 py-24 px-6 text-center overflow-hidden">
+        <PulseRings />
+        <MatrixRain color="#ef4444" opacity={0.4} />
+        {/* Vertical scan beam */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+          <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/35 to-transparent" style={{ animation: 'h-scan 5s ease-in-out infinite' }} />
+        </div>
+        {/* Corner reticle brackets */}
+        <div className="absolute inset-8 pointer-events-none" aria-hidden>
+          <div className="absolute top-0 left-0 w-10 h-10 border-t border-l border-red-500/35" />
+          <div className="absolute top-0 right-0 w-10 h-10 border-t border-r border-red-500/35" />
+          <div className="absolute bottom-0 left-0 w-10 h-10 border-b border-l border-red-500/35" />
+          <div className="absolute bottom-0 right-0 w-10 h-10 border-b border-r border-red-500/35" />
+        </div>
+        <div className="max-w-2xl mx-auto relative">
           <div className="inline-block mb-6 px-4 py-1 text-xs tracking-widest text-red-400 uppercase border border-red-800 rounded-full bg-red-950/30">
             Threats are live. Are you watching?
           </div>

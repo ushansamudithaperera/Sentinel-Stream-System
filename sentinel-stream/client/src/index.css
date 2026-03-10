@@ -96,3 +96,50 @@ body {
   animation: glitch-2 3.5s infinite 0.2s;
   opacity: 0.3;
 }
+
+/* ── Hero staggered entrance ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Terminal line slide-in ── */
+@keyframes terminal-line-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-terminal-line {
+  animation: terminal-line-in 0.22s ease-out both;
+}
+
+/* ── Radar sweep ── */
+@keyframes radar-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.radar-sweep {
+  transform-origin: 340px 340px;
+  animation: radar-rotate 5s linear infinite;
+}
+
+/* ── Matrix hex rain ── */
+@keyframes matrix-fall {
+  0%   { transform: translateY(-100%); opacity: 0;   }
+  8%   { opacity: 1;   }
+  92%  { opacity: 0.5; }
+  100% { transform: translateY(110vh); opacity: 0;   }
+}
+
+/* ── CTA pulse rings ── */
+@keyframes ring-pulse {
+  0%   { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(8); opacity: 0;   }
+}
+
+/* ── Vertical scan beam ── */
+@keyframes h-scan {
+  0%   { top: -2px;  opacity: 0;   }
+  5%   { opacity: 1;  }
+  95%  { opacity: 0.5; }
+  100% { top: 100%;  opacity: 0;   }
+}
