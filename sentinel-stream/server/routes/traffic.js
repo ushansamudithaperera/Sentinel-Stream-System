@@ -1,7 +1,7 @@
 const express = require('express');
 const { protect, admin } = require('../middlewares/auth');
 const Alert = require('../models/Alert');
-const { getMode } = require('../services/detectionEngine');
+const { getMode, applyFeedback, getModelStats } = require('../services/detectionEngine');
 
 const router = express.Router();
 
@@ -39,6 +39,32 @@ router.get('/alerts/:id', protect, admin, async (req, res) => {
 // GET /api/system/mode — current detection mode (learning/active)
 router.get('/system/mode', (req, res) => {
   res.json({ mode: getMode() });
+});
+
+// PATCH /api/alerts/:id/action — admin marks a threat as blocked or false positive
+router.patch('/alerts/:id/action', protect, admin, async (req, res) => {
+  const { action } = req.body;
+  if (!['block', 'ignore'].includes(action)) {
+    return res.status(400).json({ msg: 'Invalid action. Use "block" or "ignore".' });
+  }
+  try {
+    const alert = await Alert.findById(req.params.id);
+    if (!alert) return res.status(404).json({ msg: 'Alert not found' });
+    if (alert.adminAction !== 'pending') {
+      return res.status(409).json({ msg: 'Action already taken on this alert.' });
+    }
+    alert.adminAction = action === 'block' ? 'blocked' : 'false_positive';
+    await alert.save();
+    applyFeedback(action, alert.type);
+    res.json({ msg: `Alert marked as ${alert.adminAction}`, adminAction: alert.adminAction });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// GET /api/system/model-stats — live AI sensitivity thresholds (admin only)
+router.get('/system/model-stats', protect, admin, (req, res) => {
+  res.json(getModelStats());
 });
 
 module.exports = router;

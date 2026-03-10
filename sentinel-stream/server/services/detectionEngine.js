@@ -11,6 +11,11 @@ const rateWindow = [];
 let learningStartTime = null;
 let ewma = null;
 
+// Dynamic thresholds — nudged by admin feedback to tune model sensitivity
+let dynamicDDoSMultiplier     = DDOS_MULTIPLIER;
+let dynamicZScoreThreshold    = 3.0;
+let dynamicDeviationThreshold = 0.8;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isLearning() {
   if (!learningStartTime) return true;
@@ -54,10 +59,10 @@ async function detect(traffic) {
 
   const { avg, stdDev } = calculateRollingStats(rateWindow);
 
-  // 1. DDoS: rate spikes 500%+ above baseline average
-  if (avg > 0 && traffic.rate > avg * DDOS_MULTIPLIER) {
+  // 1. DDoS: rate spikes above dynamically-tuned multiplier (admin-adjustable)
+  if (avg > 0 && traffic.rate > avg * dynamicDDoSMultiplier) {
     const ratio = traffic.rate / avg;
-    const probability = clampProb((ratio / DDOS_MULTIPLIER) * 85 + 14);
+    const probability = clampProb((ratio / dynamicDDoSMultiplier) * 85 + 14);
     const saved = await new Alert({
       type: 'DDoS',
       severity: 'High',
@@ -69,7 +74,7 @@ async function detect(traffic) {
   // 2. Statistical Z-score anomaly (needs ≥30 samples for reliability)
   if (rateWindow.length >= 30 && stdDev > 0) {
     const zScore = (traffic.rate - avg) / stdDev;
-    if (zScore > 3) {
+    if (zScore > dynamicZScoreThreshold) {
       const probability = clampProb(Math.min(zScore / 6, 1) * 85 + 14);
       const saved = await new Alert({
         type: 'Anomaly',
@@ -84,7 +89,7 @@ async function detect(traffic) {
   if (ewma !== null) {
     const deviation = Math.abs(traffic.rate - ewma);
     const deviationRatio = deviation / Math.max(ewma, 1);
-    if (deviationRatio > 0.8) {
+    if (deviationRatio > dynamicDeviationThreshold) {
       const probability = clampProb(Math.min(deviationRatio, 1) * 85 + 14);
       const saved = await new Alert({
         type: 'Anomaly',
@@ -98,4 +103,34 @@ async function detect(traffic) {
   return { status: 'Safe', alertId: null, probability: 0, mode };
 }
 
-module.exports = { detect, getMode };
+// Admin feedback — tightens or relaxes thresholds based on confirmed/false-positive actions
+function applyFeedback(action, type) {
+  if (action === 'block') {
+    // Confirmed real threat → tighten sensitivity (lower thresholds)
+    if (type === 'DDoS') {
+      dynamicDDoSMultiplier = parseFloat(Math.max(2.0, dynamicDDoSMultiplier - 0.2).toFixed(2));
+    } else {
+      dynamicZScoreThreshold    = parseFloat(Math.max(1.5, dynamicZScoreThreshold - 0.1).toFixed(2));
+      dynamicDeviationThreshold = parseFloat(Math.max(0.3, dynamicDeviationThreshold - 0.05).toFixed(2));
+    }
+  } else {
+    // False positive → relax sensitivity (raise thresholds)
+    if (type === 'DDoS') {
+      dynamicDDoSMultiplier = parseFloat(Math.min(12.0, dynamicDDoSMultiplier + 0.2).toFixed(2));
+    } else {
+      dynamicZScoreThreshold    = parseFloat(Math.min(8.0, dynamicZScoreThreshold + 0.1).toFixed(2));
+      dynamicDeviationThreshold = parseFloat(Math.min(2.0, dynamicDeviationThreshold + 0.05).toFixed(2));
+    }
+  }
+}
+
+function getModelStats() {
+  return {
+    ddosMultiplier: dynamicDDoSMultiplier,
+    zScoreThreshold: dynamicZScoreThreshold,
+    deviationThreshold: dynamicDeviationThreshold,
+    mode: getMode(),
+  };
+}
+
+module.exports = { detect, getMode, applyFeedback, getModelStats };

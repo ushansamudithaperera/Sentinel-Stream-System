@@ -18,11 +18,67 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+function ConfirmDialog({ confirm, onConfirm, onCancel, loading }) {
+  if (!confirm.open) return null;
+  const isBlock = confirm.action === 'block';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className={`w-full max-w-sm mx-4 rounded-xl border shadow-2xl bg-gray-900 ${
+        isBlock ? 'border-red-700 shadow-red-950/50' : 'border-gray-700 shadow-gray-950/50'
+      }`}>
+        <div className={`px-5 py-4 border-b flex items-center gap-3 ${
+          isBlock ? 'border-red-800 bg-red-950/30' : 'border-gray-800 bg-gray-800/30'
+        }`}>
+          <span className="text-xl">{isBlock ? '⛔' : '✓'}</span>
+          <h3 className={`font-mono font-bold text-sm uppercase tracking-widest ${
+            isBlock ? 'text-red-300' : 'text-gray-300'
+          }`}>
+            {isBlock ? 'Confirm & Block Threat' : 'Mark as False Positive'}
+          </h3>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-sm text-gray-300 mb-3">
+            {isBlock
+              ? 'Are you sure this is a real threat? The source will be permanently marked as BLOCKED in the logs.'
+              : 'Are you sure this is a false positive? The alert will be dismissed and removed from the active threat queue.'}
+          </p>
+          <p className="text-xs text-cyan-500/70 font-mono border-t border-gray-800 pt-3 flex items-start gap-1.5">
+            <span>⚡</span>
+            <span>This action will also adjust the AI model&apos;s detection sensitivity thresholds.</span>
+          </p>
+        </div>
+        <div className="flex gap-3 px-5 pb-5">
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              isBlock
+                ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30'
+                : 'bg-gray-700 hover:bg-gray-600 text-white'
+            }`}
+          >
+            {loading ? 'Processing...' : 'Yes, Proceed'}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-lg border border-gray-700 text-sm font-mono text-gray-400 hover:border-gray-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Dashboard = () => {
   const [data, setData] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [mode, setMode] = useState('learning');
   const [user, setUser] = useState(null);
+  const [actionConfirm, setActionConfirm] = useState({ open: false, alertId: null, action: null });
+  const [actionLoading, setActionLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -62,11 +118,41 @@ const Dashboard = () => {
     }
   };
 
+  const openConfirm = (alertId, action) => {
+    setActionConfirm({ open: true, alertId, action });
+  };
+
+  const executeAction = async () => {
+    setActionLoading(true);
+    try {
+      const { alertId, action } = actionConfirm;
+      const res = await axios.patch(
+        `http://localhost:5000/api/alerts/${alertId}/action`,
+        { action },
+        { withCredentials: true }
+      );
+      setAlerts(prev => prev.map(a =>
+        a.alertId === alertId ? { ...a, adminAction: res.data.adminAction } : a
+      ));
+      setActionConfirm({ open: false, alertId: null, action: null });
+    } catch (err) {
+      console.error('Action failed:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const maliciousCount = alerts.filter(a => a.status === 'Malicious').length;
   const suspiciousCount = alerts.filter(a => a.status !== 'Malicious').length;
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
+      <ConfirmDialog
+        confirm={actionConfirm}
+        onConfirm={executeAction}
+        onCancel={() => setActionConfirm({ open: false, alertId: null, action: null })}
+        loading={actionLoading}
+      />
       {/* Cyber grid background */}
       <div className="cyber-grid pointer-events-none" aria-hidden />
       <div className="scanline pointer-events-none" aria-hidden />
@@ -204,40 +290,73 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <ul className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                <ul className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
                   {alerts.map((alert, index) => {
                     const isMalicious = alert.status === 'Malicious';
                     return (
-                      <li key={index}>
-                        <Link
-                          to={alert.alertId ? `/alert/${alert.alertId}` : '#'}
-                          className={`group flex items-start justify-between gap-4 p-3 rounded border-l-2 transition-all ${
-                            isMalicious
-                              ? 'border-red-500 bg-red-950/40 hover:bg-red-950/60'
-                              : 'border-yellow-500 bg-yellow-950/30 hover:bg-yellow-950/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className={`shrink-0 text-xs font-mono font-extrabold uppercase tracking-widest px-2 py-0.5 rounded ${
-                              isMalicious ? 'bg-red-900/60 text-red-400' : 'bg-yellow-900/60 text-yellow-400'
-                            }`}>
-                              {alert.status}
-                            </span>
-                            {alert.probability > 0 && (
-                              <span className="shrink-0 text-xs font-mono text-orange-300 font-semibold">
-                                {alert.probability}% Certainty
+                      <li key={alert.alertId || index}>
+                        <div className={`flex flex-col gap-2 p-3 rounded border-l-2 transition-all ${
+                          isMalicious
+                            ? 'border-red-500 bg-red-950/40'
+                            : 'border-yellow-500 bg-yellow-950/30'
+                        }`}>
+                          {/* Info row — click to open forensics detail */}
+                          <Link
+                            to={alert.alertId ? `/alert/${alert.alertId}` : '#'}
+                            className="group flex items-start justify-between gap-4 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                              <span className={`shrink-0 text-xs font-mono font-extrabold uppercase tracking-widest px-2 py-0.5 rounded ${
+                                isMalicious ? 'bg-red-900/60 text-red-400' : 'bg-yellow-900/60 text-yellow-400'
+                              }`}>
+                                {alert.status}
                               </span>
+                              {alert.probability > 0 && (
+                                <span className="shrink-0 text-xs font-mono text-orange-300 font-semibold">
+                                  {alert.probability}% Certainty
+                                </span>
+                              )}
+                              <span className="text-xs font-mono text-gray-400 truncate">
+                                Rate: <span className="text-gray-200">{alert.rate}</span>
+                                {' | '}IP: <span className="text-gray-200">{alert.ip}</span>
+                                {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            {alert.details && (
+                              <span className="shrink-0 text-xs text-gray-500 text-right max-w-xs font-mono">{alert.details}</span>
                             )}
-                            <span className="text-xs font-mono text-gray-400 truncate">
-                              Rate: <span className="text-gray-200">{alert.rate}</span>
-                              {' | '}IP: <span className="text-gray-200">{alert.ip}</span>
-                              {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          {alert.details && (
-                            <span className="shrink-0 text-xs text-gray-500 text-right max-w-xs font-mono">{alert.details}</span>
+                          </Link>
+                          {/* Admin action row — only shown for DB-persisted alerts */}
+                          {alert.alertId && (
+                            <div className="flex items-center gap-2 pt-1.5 border-t border-gray-800/50">
+                              {alert.adminAction === 'blocked' ? (
+                                <span className="text-xs font-mono font-bold text-red-400 border border-red-800/50 bg-red-950/40 px-2 py-0.5 rounded">
+                                  ⛔ BLOCKED
+                                </span>
+                              ) : alert.adminAction === 'false_positive' ? (
+                                <span className="text-xs font-mono font-bold text-gray-500 border border-gray-700 bg-gray-800/40 px-2 py-0.5 rounded">
+                                  ✓ FALSE POSITIVE
+                                </span>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openConfirm(alert.alertId, 'block')}
+                                    className="text-xs font-mono px-3 py-1 rounded border border-red-700/60 bg-red-950/30 text-red-400 hover:bg-red-700 hover:text-white transition-all"
+                                  >
+                                    ⛔ Confirm &amp; Block
+                                  </button>
+                                  <button
+                                    onClick={() => openConfirm(alert.alertId, 'ignore')}
+                                    className="text-xs font-mono px-3 py-1 rounded border border-gray-700 bg-gray-800/30 text-gray-400 hover:bg-gray-600 hover:text-white transition-all"
+                                  >
+                                    ✓ False Positive
+                                  </button>
+                                  <span className="text-xs font-mono text-gray-700 ml-auto">// awaiting action</span>
+                                </>
+                              )}
+                            </div>
                           )}
-                        </Link>
+                        </div>
                       </li>
                     );
                   })}
