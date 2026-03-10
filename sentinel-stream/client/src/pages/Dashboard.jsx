@@ -2,16 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
 const socket = io('http://localhost:5000');
 
+const SCENARIO_META = {
+  QUIET:      { label: 'Quiet',      color: 'text-blue-400',   bg: 'bg-blue-950/40',   border: 'border-blue-800'   },
+  MODERATE:   { label: 'Moderate',   color: 'text-green-400',  bg: 'bg-green-950/40',  border: 'border-green-800'  },
+  PEAK:       { label: 'Peak Load',  color: 'text-yellow-400', bg: 'bg-yellow-950/40', border: 'border-yellow-800' },
+  DDOS:       { label: 'DDoS',       color: 'text-red-400',    bg: 'bg-red-950/50',    border: 'border-red-700'    },
+  BRUTEFORCE: { label: 'BruteForce', color: 'text-orange-400', bg: 'bg-orange-950/40', border: 'border-orange-800' },
+  ANOMALY:    { label: 'Anomaly',    color: 'text-purple-400', bg: 'bg-purple-950/40', border: 'border-purple-800' },
+  RECOVERY:   { label: 'Recovery',   color: 'text-cyan-400',   bg: 'bg-cyan-950/40',   border: 'border-cyan-800'   },
+};
+
+function fmtBw(kbps) {
+  if (!kbps) return null;
+  return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mbps` : `${kbps} Kbps`;
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
+    const d = payload[0]?.payload || {};
     return (
-      <div className="bg-gray-900 border border-cyan-800 rounded px-3 py-2 text-xs font-mono shadow-lg shadow-cyan-900/30">
-        <p className="text-gray-400">{label}</p>
-        <p className="text-cyan-400">rate: <span className="text-white">{payload[0].value}</span></p>
+      <div className="bg-gray-900 border border-cyan-800 rounded px-3 py-2 text-xs font-mono shadow-lg shadow-cyan-900/30 space-y-0.5">
+        <p className="text-gray-400 mb-1">{label}</p>
+        <p className="text-cyan-400">rate: <span className="text-white">{d.rate} pkt/s</span></p>
+        {d.bandwidth && <p className="text-green-400">bandwidth: <span className="text-white">{fmtBw(d.bandwidth)}</span></p>}
+        {d.connectionRate != null && <p className="text-orange-400">conn/sec: <span className="text-white">{d.connectionRate}</span></p>}
+        {d.protocol && <p className="text-purple-400">protocol: <span className="text-white">{d.protocol}</span></p>}
+        {d.scenario && <p className="text-yellow-400">scenario: <span className="text-white">{d.scenario}</span></p>}
       </div>
     );
   }
@@ -76,6 +96,8 @@ const Dashboard = () => {
   const [data, setData] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [mode, setMode] = useState('learning');
+  const [scenario, setScenario] = useState(null);
+  const [liveStats, setLiveStats] = useState({ rate: 0, bandwidth: 0, connectionRate: 0, protocol: '-' });
   const [user, setUser] = useState(null);
   const [actionConfirm, setActionConfirm] = useState({ open: false, alertId: null, action: null });
   const [actionLoading, setActionLoading] = useState(false);
@@ -92,8 +114,19 @@ const Dashboard = () => {
       setData((prev) => [...prev.slice(-60), {
         name: new Date(newData.timestamp).toLocaleTimeString(),
         rate: newData.rate,
+        bandwidth: newData.bandwidth,
+        connectionRate: newData.connectionRate,
+        protocol: newData.protocol,
+        scenario: newData.scenario,
       }]);
-      if (newData.mode) setMode(newData.mode);
+      if (newData.mode)     setMode(newData.mode);
+      if (newData.scenario) setScenario(newData.scenario);
+      setLiveStats({
+        rate:           newData.rate           ?? 0,
+        bandwidth:      newData.bandwidth      ?? 0,
+        connectionRate: newData.connectionRate  ?? 0,
+        protocol:       newData.protocol        ?? '-',
+      });
     });
 
     socket.on('detectionUpdate', (update) => {
@@ -207,16 +240,18 @@ const Dashboard = () => {
         )}
 
         {/* ── Stats row ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           {[
-            { label: 'Threats Detected', value: alerts.length, color: 'text-red-400', border: 'border-red-900' },
-            { label: 'Malicious', value: maliciousCount, color: 'text-red-300', border: 'border-red-900' },
-            { label: 'Suspicious', value: suspiciousCount, color: 'text-yellow-300', border: 'border-yellow-900' },
+            { label: 'Packet Rate',   value: `${liveStats.rate} pkt/s`,      color: 'text-cyan-400',   border: 'border-cyan-900' },
+            { label: 'Bandwidth',     value: fmtBw(liveStats.bandwidth) || '—', color: 'text-green-400', border: 'border-green-900' },
+            { label: 'Conn/sec',      value: liveStats.connectionRate,        color: 'text-orange-400', border: 'border-orange-900' },
+            { label: 'Protocol',      value: liveStats.protocol,              color: 'text-purple-400', border: 'border-purple-900' },
+            { label: 'Threats',       value: alerts.length,                   color: 'text-red-400',    border: 'border-red-900' },
             { label: 'System Status', value: mode === 'learning' ? 'LEARNING' : 'ACTIVE', color: mode === 'learning' ? 'text-blue-400' : 'text-green-400', border: mode === 'learning' ? 'border-blue-900' : 'border-green-900' },
           ].map(({ label, value, color, border }) => (
             <div key={label} className={`bg-gray-900/70 border ${border} rounded-lg px-4 py-3`}>
               <p className="text-gray-500 text-xs font-mono uppercase tracking-wider mb-1">{label}</p>
-              <p className={`text-xl font-extrabold font-mono ${color}`}>{value}</p>
+              <p className={`text-lg font-extrabold font-mono ${color} truncate`}>{value}</p>
             </div>
           ))}
         </div>
@@ -225,11 +260,17 @@ const Dashboard = () => {
         <div className="mb-6 bg-gray-900/70 border border-gray-800 rounded-lg shadow-lg overflow-hidden">
           {/* panel header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               <h2 className="text-sm font-mono font-semibold tracking-widest uppercase text-gray-300">
                 Real-time Traffic Rate
               </h2>
+              {scenario && SCENARIO_META[scenario] && (
+                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                  SCENARIO_META[scenario].color} ${SCENARIO_META[scenario].bg} ${SCENARIO_META[scenario].border}`}>
+                  ● {SCENARIO_META[scenario].label}
+                </span>
+              )}
             </div>
             <span className="text-xs font-mono text-gray-600">last 60 ticks</span>
           </div>
@@ -238,16 +279,12 @@ const Dashboard = () => {
               <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
-                <YAxis stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                <YAxis yAxisId="left" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="rate"
-                  stroke="#22d3ee"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5, fill: '#22d3ee', stroke: '#083344', strokeWidth: 2 }}
-                />
+                <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '8px' }} />
+                <Line yAxisId="left"  type="monotone" dataKey="rate"           name="pkt/s"    stroke="#22d3ee" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                <Line yAxisId="right" type="monotone" dataKey="connectionRate" name="conn/sec" stroke="#f97316" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -317,7 +354,10 @@ const Dashboard = () => {
                                 </span>
                               )}
                               <span className="text-xs font-mono text-gray-400 truncate">
-                                Rate: <span className="text-gray-200">{alert.rate}</span>
+                                Rate: <span className="text-gray-200">{alert.rate} pkt/s</span>
+                                {alert.bandwidth ? <>{' | '}BW: <span className="text-green-300">{fmtBw(alert.bandwidth)}</span></> : null}
+                                {alert.connectionRate > 0 ? <>{' | '}Conn/s: <span className="text-orange-300">{alert.connectionRate}</span></> : null}
+                                {alert.protocol ? <>{' | '}Proto: <span className="text-purple-300">{alert.protocol}</span></> : null}
                                 {' | '}IP: <span className="text-gray-200">{alert.ip}</span>
                                 {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
                               </span>

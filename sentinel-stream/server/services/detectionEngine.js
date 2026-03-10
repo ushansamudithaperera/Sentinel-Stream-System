@@ -57,16 +57,31 @@ async function detect(traffic) {
     return { status: 'Learning', alertId: null, probability: 0, mode };
   }
 
+  // 0. BruteForce: SSH high connection rate from single IP
+  //    NIST SP 800-63B threshold: >10 auth attempts/sec triggers account lockout
+  //    Typical SSH scanner: 40–185 conn/sec — flag at >20 conn/sec
+  if (traffic.protocol === 'SSH' && (traffic.connectionRate || 0) > 20) {
+    const cr = traffic.connectionRate;
+    const probability = clampProb(Math.min(cr / 120, 1) * 85 + 14);
+    const saved = await new Alert({
+      type: 'BruteForce',
+      severity: cr > 80 ? 'High' : 'Medium',
+      details: `SSH brute-force from ${traffic.ip} — ${cr} conn/sec (NIST threshold >20/sec) — ${probability}% certain`,
+    }).save();
+    return { status: 'Malicious', alertId: saved._id, probability, mode };
+  }
+
   const { avg, stdDev } = calculateRollingStats(rateWindow);
 
   // 1. DDoS: rate spikes above dynamically-tuned multiplier (admin-adjustable)
   if (avg > 0 && traffic.rate > avg * dynamicDDoSMultiplier) {
     const ratio = traffic.rate / avg;
     const probability = clampProb((ratio / dynamicDDoSMultiplier) * 85 + 14);
+    const bw = traffic.bandwidth ? ` / ${traffic.bandwidth >= 1000 ? (traffic.bandwidth/1000).toFixed(1)+' Mbps' : traffic.bandwidth+' Kbps'}` : '';
     const saved = await new Alert({
       type: 'DDoS',
       severity: 'High',
-      details: `Rate ${traffic.rate} is ${ratio.toFixed(1)}x above baseline avg ${avg.toFixed(0)} — ${probability}% certain: DDoS Attack`,
+      details: `Rate ${traffic.rate} pkt/s${bw} is ${ratio.toFixed(1)}x above baseline avg ${avg.toFixed(0)} pkt/s — ${probability}% certain: DDoS Attack`,
     }).save();
     return { status: 'Malicious', alertId: saved._id, probability, mode };
   }
@@ -79,7 +94,7 @@ async function detect(traffic) {
       const saved = await new Alert({
         type: 'Anomaly',
         severity: 'Medium',
-        details: `Z-score ${zScore.toFixed(2)} — ${probability}% certain: Statistical Anomaly`,
+        details: `Statistical anomaly — Z-score ${zScore.toFixed(2)}, rate ${traffic.rate} pkt/s ${traffic.bandwidth ? '(' + traffic.bandwidth + ' Kbps)' : ''} — ${probability}% certain`,
       }).save();
       return { status: 'Suspicious', alertId: saved._id, probability, mode };
     }
