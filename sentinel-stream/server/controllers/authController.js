@@ -7,12 +7,14 @@ exports.register = [
   body('username').trim().escape(),
   body('password').isLength({ min: 6 }),
   async (req, res) => {
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
+    // Role is always forced to 'viewer' on registration.
+    // Admin privileges can only be granted via direct DB modification (Principle of Least Privilege).
     try {
       let user = await User.findOne({ username });
       if (user) return res.status(400).json({ msg: 'User exists' });
 
-      user = new User({ username, password, role });
+      user = new User({ username, password, role: 'viewer' });
       await user.save();
 
       res.status(201).json({ msg: 'User created' });

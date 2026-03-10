@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/auth/me', { withCredentials: true })
+      .then(res => setUserRole(res.data.role))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -52,7 +59,17 @@ const Navbar = () => {
         {/* Links */}
         <div className="flex items-center gap-6">
           {navLink('/dashboard', 'Dashboard')}
-          {navLink('/forensics', 'Forensics')}
+          {userRole === 'admin' && navLink('/forensics', 'Forensics')}
+          {/* Role badge */}
+          {userRole && (
+            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+              userRole === 'admin'
+                ? 'text-cyan-400 border-cyan-800 bg-cyan-950/60'
+                : 'text-yellow-400 border-yellow-800 bg-yellow-950/60'
+            }`}>
+              {userRole.toUpperCase()}
+            </span>
+          )}
           <button
             onClick={handleLogout}
             className="text-xs font-mono tracking-widest uppercase px-3 py-1.5 rounded border border-red-700 text-red-400 hover:bg-red-900/30 hover:border-red-500 hover:text-red-300 transition-all"

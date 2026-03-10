@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const severityConfig = {
   High:   { bar: 'bg-red-500',    badge: 'bg-red-950/60 text-red-400 border-red-700',    dot: 'bg-red-500'    },
@@ -11,25 +11,35 @@ const severityConfig = {
 const typeIcon = { DDoS: '🌊', BruteForce: '🔨', Anomaly: '⚡', default: '⚠' };
 
 const Forensics = () => {
-  const [logs, setLogs]     = useState([]);
+  const [logs, setLogs]       = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
-  const [filter, setFilter] = useState('All');
+  const [error, setError]     = useState(null);
+  const [filter, setFilter]   = useState('All');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchLogs = async () => {
+    const init = async () => {
       try {
+        // Role guard: viewers are not permitted to access forensic logs
+        const meRes = await axios.get('http://localhost:5000/api/auth/me', { withCredentials: true });
+        if (meRes.data.role !== 'admin') {
+          navigate('/dashboard');
+          return;
+        }
         const res = await axios.get('http://localhost:5000/api/logs', { withCredentials: true });
         setLogs(res.data);
       } catch (err) {
-        setError('Failed to load logs. Make sure you are logged in as admin.');
-        console.error(err);
+        if (err.response?.status === 401) {
+          navigate('/login');
+        } else {
+          setError('Failed to load logs.');
+        }
       } finally {
         setLoading(false);
       }
     };
-    fetchLogs();
-  }, []);
+    init();
+  }, [navigate]);
 
   const types = ['All', ...Array.from(new Set(logs.map(l => l.type)))];
   const filtered = filter === 'All' ? logs : logs.filter(l => l.type === filter);

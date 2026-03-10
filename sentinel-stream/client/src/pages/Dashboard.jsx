@@ -79,10 +79,21 @@ const Dashboard = () => {
             <p className="font-mono text-xs text-cyan-600 tracking-widest uppercase mb-1">
               // operations center
             </p>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Sentinel<span className="text-cyan-400">Stream</span>{' '}
-              <span className="text-gray-400 font-normal">War Room</span>
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Sentinel<span className="text-cyan-400">Stream</span>{' '}
+                <span className="text-gray-400 font-normal">War Room</span>
+              </h1>
+              {user && (
+                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                  user.role === 'admin'
+                    ? 'text-cyan-400 border-cyan-800 bg-cyan-950/60'
+                    : 'text-yellow-400 border-yellow-800 bg-yellow-950/60'
+                }`}>
+                  {user.role.toUpperCase()}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Mode badge */}
@@ -236,12 +247,89 @@ const Dashboard = () => {
           </div>
         ) : (
           user && (
-            <div className="bg-gray-900/70 border border-gray-800 rounded-lg p-6">
-              <p className="font-mono text-sm text-gray-500">
-                <span className="text-yellow-500">⚠</span> Live Attack Feed is restricted to{' '}
-                <span className="text-cyan-400">admin</span> users. Logged in as:{' '}
-                <span className="text-gray-300">{user.role}</span>
-              </p>
+            <div className="bg-gray-900/70 border border-yellow-900/40 rounded-lg shadow-lg overflow-hidden">
+              {/* Panel header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                  <h2 className="text-sm font-mono font-semibold tracking-widest uppercase text-gray-300">
+                    Live Threat Monitor
+                  </h2>
+                  {alerts.length > 0 && (
+                    <span className="text-xs font-mono font-bold bg-yellow-900/60 text-yellow-400 border border-yellow-800/50 px-2 py-0.5 rounded">
+                      {alerts.length} detected
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs font-mono text-yellow-600 border border-yellow-900/50 px-2 py-0.5 rounded">
+                  READ-ONLY ACCESS
+                </span>
+              </div>
+
+              {/* Principle of Least Privilege notice */}
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-yellow-950/20 border-b border-yellow-900/20 text-xs font-mono text-yellow-600">
+                <span>&#9888;</span>
+                <span>
+                  IP addresses, traffic rates, and forensic details are restricted to{' '}
+                  <span className="text-yellow-400 font-bold">Admin</span> accounts.
+                  Contact your admin to block attackers or clear logs.
+                </span>
+              </div>
+
+              <div className="p-4">
+                {alerts.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="font-mono text-sm text-green-400">
+                      {mode === 'learning'
+                        ? '// awaiting baseline — detection inactive'
+                        : '// all clear — no threats detected'}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {alerts.map((alert, index) => {
+                      const isMalicious = alert.status === 'Malicious';
+                      return (
+                        <li
+                          key={index}
+                          className={`flex items-start justify-between gap-4 p-3 rounded border-l-2 ${
+                            isMalicious
+                              ? 'border-red-500 bg-red-950/40'
+                              : 'border-yellow-500 bg-yellow-950/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                            <span className={`shrink-0 text-xs font-mono font-extrabold uppercase tracking-widest px-2 py-0.5 rounded ${
+                              isMalicious ? 'bg-red-900/60 text-red-400' : 'bg-yellow-900/60 text-yellow-400'
+                            }`}>
+                              {alert.status}
+                            </span>
+                            {alert.probability > 0 && (
+                              <span className="shrink-0 text-xs font-mono text-orange-300 font-semibold">
+                                {alert.probability}% Certainty
+                              </span>
+                            )}
+                            <span className="text-xs font-mono text-gray-400">
+                              Type: <span className="text-gray-200">{alert.type || 'Unknown'}</span>
+                              {' | '}IP: <span className="text-gray-600 tracking-widest">***.***.***.***</span>
+                              {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <span className="shrink-0 text-xs font-mono text-yellow-700 border border-yellow-900/40 px-2 py-0.5 rounded whitespace-nowrap">
+                            &#9888; Escalate
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-gray-800 text-xs font-mono text-gray-600 text-center">
+                To investigate IPs, block attackers, or clear logs &mdash; contact your{' '}
+                <span className="text-cyan-500">System Administrator</span>.
+              </div>
             </div>
           )
         )}
