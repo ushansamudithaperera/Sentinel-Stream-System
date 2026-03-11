@@ -177,6 +177,7 @@ const Dashboard = () => {
 
   const maliciousCount = alerts.filter(a => a.status === 'Malicious').length;
   const suspiciousCount = alerts.filter(a => a.status !== 'Malicious').length;
+  const isAttack = scenario === 'DDOS';
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
@@ -216,15 +217,21 @@ const Dashboard = () => {
           </div>
 
           {/* Mode badge */}
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded border text-sm font-mono font-semibold tracking-wider ${
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded border text-sm font-mono font-semibold tracking-wider transition-all duration-500 ${
             mode === 'learning'
               ? 'bg-blue-950/60 border-blue-600 text-blue-300'
-              : 'bg-green-950/60 border-green-600 text-green-300'
+              : isAttack
+                ? 'bg-red-950/60 border-red-600 text-red-300'
+                : 'bg-green-950/60 border-green-600 text-green-300'
           }`}>
             <span className={`w-2 h-2 rounded-full ${
-              mode === 'learning' ? 'bg-blue-400 animate-pulse' : 'bg-green-400 animate-pulse'
+              mode === 'learning'
+                ? 'bg-blue-400 animate-pulse'
+                : isAttack
+                  ? 'animate-pulse-red'
+                  : 'bg-green-400 animate-pulse'
             }`} />
-            {mode === 'learning' ? '● Learning Mode' : '● Active Detection'}
+            {mode === 'learning' ? '● Learning Mode' : isAttack ? '● Attack Detected' : '● Active Detection'}
           </div>
         </div>
 
@@ -257,7 +264,9 @@ const Dashboard = () => {
         </div>
 
         {/* ── Live Traffic Chart ── */}
-        <div className="mb-6 bg-gray-900/70 border border-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div className={`mb-6 bg-gray-900/70 border rounded-lg shadow-lg overflow-hidden chart-emergency ${
+          isAttack ? 'glow-active border-red-700' : 'border-gray-800'
+        }`}>
           {/* panel header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
             <div className="flex items-center gap-2 flex-wrap">
