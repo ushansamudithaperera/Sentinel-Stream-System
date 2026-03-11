@@ -3,8 +3,8 @@ const { detect } = require('./detectionEngine');
 
 // ─── Rhythm ───────────────────────────────────────────────────────────────────
 const INTERVAL_MS     = 2000;   // emit every 2 s
-const CYCLE_MS        = 25000;  // full loop: 25 s wallclock
-const NORMAL_PHASE_MS = 15000;  // 0–15 s → Normal phase  |  15–25 s → Attack phase
+const CYCLE_MS        = 60000;  // full loop: 60 s wallclock
+const NORMAL_PHASE_MS = 50000;  // 0–50 s → Normal phase  |  50–60 s → Attack phase
 
 // ─── Metric notes ─────────────────────────────────────────────────────────────
 //   Business hours (08:00–18:00) MODERATE : 140–420  pkt/s, ~1.0–2.5 Mbps
