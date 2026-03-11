@@ -1,10 +1,12 @@
 const Alert = require('../models/Alert');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-const LEARNING_DURATION = 5 * 60 * 1000; // 5-minute baseline learning phase
-const WINDOW_SIZE = 300;                  // up to 300 samples (~5 min at 1/sec)
-const EWMA_ALPHA = 0.05;                  // slow smoothing for a stable baseline
-const DDOS_MULTIPLIER = 5;               // 500% above baseline triggers DDoS alert
+// Learning phase: 40 s gathers ~20 baseline ticks (2 s interval) before alerting.
+// This ensures EWMA and rolling stats stabilise before the first spike is evaluated.
+const LEARNING_DURATION = 40 * 1000;             // 40-second baseline warm-up
+const WINDOW_SIZE = 60;                           // 60 samples ≈ 2 min of history
+const EWMA_ALPHA = 0.08;                          // slightly faster tracking
+const DDOS_MULTIPLIER = 5;                        // 500% above avg triggers DDoS
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const rateWindow = [];
@@ -86,8 +88,8 @@ async function detect(traffic) {
     return { status: 'Malicious', alertId: saved._id, probability, mode };
   }
 
-  // 2. Statistical Z-score anomaly (needs ≥30 samples for reliability)
-  if (rateWindow.length >= 30 && stdDev > 0) {
+  // 2. Statistical Z-score anomaly (needs ≥10 samples for reliability)
+  if (rateWindow.length >= 10 && stdDev > 0) {
     const zScore = (traffic.rate - avg) / stdDev;
     if (zScore > dynamicZScoreThreshold) {
       const probability = clampProb(Math.min(zScore / 6, 1) * 85 + 14);
