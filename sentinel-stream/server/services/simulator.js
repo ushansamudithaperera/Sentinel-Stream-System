@@ -40,24 +40,25 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(v))); }
 //  RECOVERY   post-attack decay:   ramps back to baseline over 15–35 s
 
 const DURATIONS = {
-  QUIET:      [30,  90 ],
-  MODERATE:   [60,  240],
-  PEAK:       [30,  120],
-  DDOS:       [20,  60 ],
-  BRUTEFORCE: [30,  90 ],
-  ANOMALY:    [60,  120],
-  RECOVERY:   [15,  35 ],
+  QUIET:      [90,  240],  // 1.5 – 4 min of calm baseline
+  MODERATE:   [120, 360], // 2 – 6 min of normal business traffic
+  PEAK:       [45,  120], // short legitimate traffic burst
+  DDOS:       [20,  50 ], // attack itself is brief but intense
+  BRUTEFORCE: [25,  70 ], // SSH scan window
+  ANOMALY:    [60,  150], // gradual insider drift
+  RECOVERY:   [30,  60 ], // ramp back down to baseline
 };
 
-// Weighted transition table
+// Weighted transition table — attacks are rare; long calm stretches are the norm
+// Total attack weight from QUIET = 9 / 100, from MODERATE = 12 / 100
 const TRANSITIONS = {
-  QUIET:      [['QUIET',10],['MODERATE',63],['DDOS',5],['BRUTEFORCE',14],['ANOMALY',8]],
-  MODERATE:   [['MODERATE',28],['QUIET',14],['PEAK',22],['DDOS',10],['BRUTEFORCE',14],['ANOMALY',12]],
-  PEAK:       [['PEAK',22],['MODERATE',34],['DDOS',20],['BRUTEFORCE',12],['ANOMALY',12]],
+  QUIET:      [['QUIET',25],['MODERATE',66],['DDOS',2],['BRUTEFORCE',4],['ANOMALY',3]],
+  MODERATE:   [['MODERATE',35],['QUIET',22],['PEAK',26],['DDOS',5],['BRUTEFORCE',7],['ANOMALY',5]],
+  PEAK:       [['PEAK',15],['MODERATE',52],['DDOS',14],['BRUTEFORCE',10],['ANOMALY',9]],
   DDOS:       [['RECOVERY',100]],
   BRUTEFORCE: [['RECOVERY',100]],
   ANOMALY:    [['RECOVERY',100]],
-  RECOVERY:   [['QUIET',38],['MODERATE',62]],
+  RECOVERY:   [['QUIET',55],['MODERATE',45]],
 };
 
 function nextScenario(current) {

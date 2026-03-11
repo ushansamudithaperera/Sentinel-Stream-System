@@ -275,7 +275,7 @@ const Dashboard = () => {
             <span className="text-xs font-mono text-gray-600">last 60 ticks</span>
           </div>
           <div className="p-4">
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={360}>
               <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
