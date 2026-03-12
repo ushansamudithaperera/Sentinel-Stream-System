@@ -56,6 +56,81 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// ── Security Ops Modal ────────────────────────────────────────────────────────
+function SecurityOpsModal({ open, onClose, blacklist, onUnblock }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl mx-4 rounded-xl border-2 border-cyan-700 shadow-2xl shadow-cyan-950/50 bg-slate-950/95"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-cyan-800/60 bg-slate-900/80">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+            <h2 className="text-sm font-mono font-bold tracking-widest uppercase text-cyan-400">
+              Security Ops &mdash; IP Control
+            </h2>
+            <span className="text-xs font-mono font-bold bg-red-600/80 text-white px-2 py-0.5 rounded">
+              {blacklist.length}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-cyan-400 text-lg font-mono transition-colors"
+          >
+            \u2715
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          {blacklist.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-3xl mb-2">\ud83d\udee1\ufe0f</p>
+              <p className="font-mono text-sm text-cyan-400">// no blacklisted IPs &mdash; all clear</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="text-cyan-500 uppercase tracking-wider border-b border-cyan-800/40">
+                  <th className="text-left py-2 px-3">IP Address</th>
+                  <th className="text-left py-2 px-3">Reason</th>
+                  <th className="text-left py-2 px-3">Timestamp</th>
+                  <th className="text-left py-2 px-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blacklist.map((entry, i) => (
+                  <tr key={entry._id || i} className="border-b border-gray-800/50 hover:bg-slate-800/40 transition-colors">
+                    <td className="py-2.5 px-3 text-red-400 font-bold">{entry.ip}</td>
+                    <td className="py-2.5 px-3 text-gray-400 max-w-xs truncate">{entry.reason}</td>
+                    <td className="py-2.5 px-3 text-gray-500">{new Date(entry.timestamp).toLocaleString()}</td>
+                    <td className="py-2.5 px-3">
+                      <button
+                        onClick={() => onUnblock(entry.ip)}
+                        className="px-3 py-1 rounded border border-cyan-600 bg-cyan-950/50 text-cyan-400 font-bold uppercase tracking-wider text-xs hover:bg-cyan-600 hover:text-white transition-all shadow-sm shadow-cyan-900/30"
+                      >
+                        Unblock
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-cyan-800/40 text-center">
+          <p className="text-xs font-mono text-gray-600">Unblocking removes the IP from the auto-blacklist collection.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmDialog({ confirm, onConfirm, onCancel, loading }) {
   if (!confirm.open) return null;
   const isBlock = confirm.action === 'block';
@@ -122,6 +197,7 @@ const Dashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [blacklist, setBlacklist] = useState([]);
   const [securityAlerts, setSecurityAlerts] = useState([]);
+  const [showSecOpsModal, setShowSecOpsModal] = useState(false);
   const seenAlertIds = useRef(new Set());
   const navigate = useNavigate();
 
@@ -260,6 +336,15 @@ const Dashboard = () => {
     }
   };
 
+  const unblockIp = async (ip) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/admin/blacklist/${encodeURIComponent(ip)}`, { withCredentials: true });
+      setBlacklist(prev => prev.filter(e => e.ip !== ip));
+    } catch (err) {
+      console.error('Unblock failed:', err);
+    }
+  };
+
   const maliciousCount = alerts.filter(a => a.status === 'Malicious').length;
   const suspiciousCount = alerts.filter(a => a.status !== 'Malicious').length;
   const isAttack = scenario === 'DDOS' || scenario === 'BRUTEFORCE' || scenario === 'ANOMALY';
@@ -271,6 +356,12 @@ const Dashboard = () => {
         onConfirm={executeAction}
         onCancel={() => setActionConfirm({ open: false, alertId: null, action: null })}
         loading={actionLoading}
+      />
+      <SecurityOpsModal
+        open={showSecOpsModal}
+        onClose={() => setShowSecOpsModal(false)}
+        blacklist={blacklist}
+        onUnblock={unblockIp}
       />
       {/* Cyber grid background */}
       <div className="cyber-grid pointer-events-none" aria-hidden />
@@ -290,13 +381,23 @@ const Dashboard = () => {
                 <span className="text-gray-400 font-normal">War Room</span>
               </h1>
               {user && (
-                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
-                  user.role === 'admin'
-                    ? 'text-cyan-400 border-cyan-800 bg-cyan-950/60'
-                    : 'text-yellow-400 border-yellow-800 bg-yellow-950/60'
-                }`}>
-                  {user.role.toUpperCase()}
-                </span>
+                <>
+                  <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                    user.role === 'admin'
+                      ? 'text-cyan-400 border-cyan-800 bg-cyan-950/60'
+                      : 'text-yellow-400 border-yellow-800 bg-yellow-950/60'
+                  }`}>
+                    {user.role.toUpperCase()}
+                  </span>
+                  {user.role === 'admin' && (
+                    <button
+                      onClick={() => setShowSecOpsModal(true)}
+                      className="text-xs font-mono font-bold px-3 py-1 rounded border border-cyan-700 bg-cyan-950/50 text-cyan-400 hover:bg-cyan-700 hover:text-white transition-all shadow-sm shadow-cyan-900/30 uppercase tracking-wider"
+                    >
+                      \u26d4 Security Ops
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -524,62 +625,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* ── Blacklist Table (admin) ── */}
-          {blacklist.length > 0 && (
-            <div className="mt-6 bg-gray-900/70 border border-gray-800 rounded-lg shadow-lg overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
-                <div className="flex items-center gap-3">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <h2 className="text-sm font-mono font-semibold tracking-widest uppercase text-gray-300">
-                    Blacklisted IPs
-                  </h2>
-                  <span className="text-xs font-mono font-bold bg-red-600/80 text-white px-2 py-0.5 rounded">
-                    {blacklist.length}
-                  </span>
-                </div>
-              </div>
-              <div className="p-4 overflow-x-auto">
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="text-gray-500 uppercase tracking-wider border-b border-gray-800">
-                      <th className="text-left py-2 px-3">IP Address</th>
-                      <th className="text-left py-2 px-3">Attack Type</th>
-                      <th className="text-left py-2 px-3">Severity</th>
-                      <th className="text-left py-2 px-3">Reason</th>
-                      <th className="text-left py-2 px-3">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {blacklist.slice(0, 50).map((entry, i) => (
-                      <tr key={entry._id || i} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                        <td className="py-2 px-3 text-red-400 font-bold">{entry.ip}</td>
-                        <td className="py-2 px-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                            entry.attackType === 'DDoS'       ? 'bg-red-950/60 text-red-400' :
-                            entry.attackType === 'BruteForce' ? 'bg-orange-950/60 text-orange-400' :
-                                                                'bg-purple-950/60 text-purple-400'
-                          }`}>
-                            {entry.attackType}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className={`font-bold ${
-                            entry.severity === 'High'   ? 'text-red-400' :
-                            entry.severity === 'Medium' ? 'text-yellow-400' :
-                                                          'text-green-400'
-                          }`}>
-                            {entry.severity}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-gray-400 max-w-xs truncate">{entry.reason}</td>
-                        <td className="py-2 px-3 text-gray-500">{new Date(entry.timestamp).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
           </>
         ) : (
           user && (

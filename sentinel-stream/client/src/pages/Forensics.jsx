@@ -1,6 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const severityColors = { High: '#ef4444', Medium: '#f59e0b', Low: '#22d3ee' };
+const typeColors = { DDoS: '#ef4444', BruteForce: '#f97316', Anomaly: '#a855f7' };
+
+const PieTooltip = ({ active, payload }) => {
+  if (active && payload?.length) {
+    const d = payload[0];
+    const total = d.payload?.total || 0;
+    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
+    return (
+      <div className="bg-slate-900 border border-cyan-800 rounded px-3 py-2 text-xs font-mono shadow-lg shadow-cyan-900/30">
+        <p className="text-cyan-400 font-bold">{d.name}</p>
+        <p className="text-white">Count: {d.value}</p>
+        <p className="text-gray-400">{pct}%</p>
+      </div>
+    );
+  }
+  return null;
+};
 
 const severityConfig = {
   High:   { bar: 'bg-red-500',    badge: 'bg-red-950/60 text-red-400 border-red-700',    dot: 'bg-red-500'    },
@@ -47,6 +67,18 @@ const Forensics = () => {
   const highCount   = logs.filter(l => l.severity === 'High').length;
   const medCount    = logs.filter(l => l.severity === 'Medium').length;
   const lowCount    = logs.filter(l => l.severity === 'Low').length;
+  const totalForPie = highCount + medCount + lowCount;
+
+  const severityPieData = [
+    { name: 'High',   value: highCount, total: totalForPie },
+    { name: 'Medium', value: medCount,  total: totalForPie },
+    { name: 'Low',    value: lowCount,  total: totalForPie },
+  ].filter(d => d.value > 0);
+
+  const typeCounts = {};
+  logs.forEach(l => { if (l.type) typeCounts[l.type] = (typeCounts[l.type] || 0) + 1; });
+  const totalType = Object.values(typeCounts).reduce((a, b) => a + b, 0);
+  const typePieData = Object.entries(typeCounts).map(([name, value]) => ({ name, value, total: totalType }));
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
@@ -107,6 +139,83 @@ const Forensics = () => {
           <div className="py-16 text-center">
             <p className="text-4xl mb-3">🛡️</p>
             <p className="font-mono text-sm text-green-400">// no incidents recorded — system clean</p>
+          </div>
+        )}
+
+        {/* Pie Charts */}
+        {!loading && !error && logs.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Severity Distribution */}
+            <div className="bg-gray-900/70 border border-gray-800 rounded-lg shadow-xl shadow-cyan-950/10 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-800 bg-gray-900/50">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <h2 className="text-xs font-mono font-semibold tracking-widest uppercase text-gray-300">
+                  Threat Severity Distribution
+                </h2>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={severityPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={95}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="#0f172a"
+                      strokeWidth={2}
+                    >
+                      {severityPieData.map(entry => (
+                        <Cell key={entry.name} fill={severityColors[entry.name] || '#6b7280'} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                    <Legend
+                      wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace' }}
+                      formatter={(val) => <span style={{ color: severityColors[val] || '#9ca3af' }}>{val}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Attack Type Distribution */}
+            <div className="bg-gray-900/70 border border-gray-800 rounded-lg shadow-xl shadow-cyan-950/10 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-800 bg-gray-900/50">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <h2 className="text-xs font-mono font-semibold tracking-widest uppercase text-gray-300">
+                  Attack Type Distribution
+                </h2>
+              </div>
+              <div className="p-4">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={typePieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={95}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="#0f172a"
+                      strokeWidth={2}
+                    >
+                      {typePieData.map(entry => (
+                        <Cell key={entry.name} fill={typeColors[entry.name] || '#6b7280'} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                    <Legend
+                      wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace' }}
+                      formatter={(val) => <span style={{ color: typeColors[val] || '#9ca3af' }}>{val}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
 

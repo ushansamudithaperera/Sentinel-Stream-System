@@ -99,6 +99,37 @@ router.get('/admin/blacklist', protect, admin, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/blacklist/:ip — unblock / remove an IP from the blacklist (admin only)
+router.delete('/admin/blacklist/:ip', protect, admin, async (req, res) => {
+  try {
+    const { ip } = req.params;
+    const result = await Blacklist.deleteMany({ ip });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ msg: 'IP not found in blacklist' });
+    }
+    res.json({ msg: `${ip} removed from blacklist`, deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to unblock IP' });
+  }
+});
+
+// GET /api/threats/severity-distribution — aggregated severity + type counts
+router.get('/threats/severity-distribution', protect, async (req, res) => {
+  try {
+    const [bySeverity, byType] = await Promise.all([
+      Alert.aggregate([{ $group: { _id: '$severity', count: { $sum: 1 } } }]),
+      Alert.aggregate([{ $group: { _id: '$type', count: { $sum: 1 } } }]),
+    ]);
+    const severity = { High: 0, Medium: 0, Low: 0 };
+    bySeverity.forEach(r => { if (severity.hasOwnProperty(r._id)) severity[r._id] = r.count; });
+    const type = {};
+    byType.forEach(r => { if (r._id) type[r._id] = r.count; });
+    res.json({ severity, type });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to fetch severity distribution' });
+  }
+});
+
 // GET /api/blocked-ips — IPs blocked via admin action (admin only)
 router.get('/blocked-ips', protect, admin, async (req, res) => {
   try {
