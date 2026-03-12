@@ -1,17 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-// â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const TICKER_EVENTS = [
-  { type: 'DDoS',       ip: '45.33.32.156',   certainty: 98, color: 'text-red-400'    },
-  { type: 'BruteForce', ip: '192.168.1.14',    certainty: 91, color: 'text-orange-400' },
-  { type: 'Anomaly',    ip: '10.0.0.23',       certainty: 85, color: 'text-yellow-400' },
-  { type: 'DDoS',       ip: '203.0.113.42',    certainty: 99, color: 'text-red-400'    },
-  { type: 'BruteForce', ip: '172.16.0.5',      certainty: 88, color: 'text-orange-400' },
-  { type: 'Anomaly',    ip: '198.51.100.7',    certainty: 92, color: 'text-yellow-400' },
-  { type: 'DDoS',       ip: '104.21.14.80',    certainty: 97, color: 'text-red-400'    },
-  { type: 'BruteForce', ip: '185.220.101.56',  certainty: 94, color: 'text-orange-400' },
-];
+// Ã¢â€â‚¬Ã¢â€â‚¬ Data Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const PARTICLES = [
   { ip: '45.33.32.156',   label: 'DDoS', left: '7%',  delay: '0s',   dur: '7s'   },
@@ -152,15 +142,15 @@ function IconLog() {
 }
 
 const FEATURES = [
-  { icon: <IconDDoS />, title: 'Real-Time DDoS Detection',   desc: 'Monitors packet rates every second. Triggers an alert the moment traffic spikes 500% above the learned baseline.' },
-  { icon: <IconAI />,   title: 'AI Baseline Learning',        desc: 'Spends the first 5 minutes building a normal-traffic model using EWMA. Anything that deviates triggers a Zero-Day flag.' },
-  { icon: <IconBF />,   title: 'Brute-Force Blocking',        desc: '10 failed JWT logins from the same IP in 30 seconds? The attacker is blocked and the event is logged to MongoDB.' },
-  { icon: <IconRBAC />, title: 'Role-Based Access Control',   desc: 'Admins see the live attack feed and forensics logs. Viewers only get traffic charts. Every route is JWT-protected.' },
-  { icon: <IconLive />, title: 'Live War Room Dashboard',     desc: 'Real-time Recharts line chart streamed via Socket.io. Alerts scroll in with colour-coded severity badges.' },
-  { icon: <IconLog />,  title: 'Forensics & Audit Trail',     desc: 'Every threat is persisted in MongoDB. Click any log entry to see full details: IP, protocol, severity, and AI confidence.' },
+  { icon: <IconDDoS />, title: 'Real-Time DDoS Detection',   desc: 'Watches your traffic around the clock and raises an alert the moment something spikes beyond your normal baseline.' },
+  { icon: <IconAI />,   title: 'AI Baseline Learning',        desc: 'Quietly learns what normal looks like for your network, then flags anything unusual as a potential threat.' },
+  { icon: <IconBF />,   title: 'Brute-Force Blocking',        desc: 'Too many failed logins from the same source? It gets blocked automatically and the event is logged.' },
+  { icon: <IconRBAC />, title: 'Role-Based Access Control',   desc: 'Admins get full visibility into attacks and forensics. Viewers see only what they need. Every route is protected.' },
+  { icon: <IconLive />, title: 'Live War Room Dashboard',     desc: 'A real-time feed of your network health with colour-coded severity badges as threats roll in.' },
+  { icon: <IconLog />,  title: 'Forensics & Audit Trail',     desc: 'Every threat is saved. Click any entry to drill into the full story: source, severity, and confidence score.' },
 ];
 
-// â”€â”€ Animated neutralized-threat counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬ Animated neutralized-threat counter Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function RadarScanner() {
   return (
     <svg
@@ -183,12 +173,12 @@ function RadarScanner() {
       <line x1="10" y1="340" x2="670" y2="340" stroke="#22d3ee" strokeWidth="0.5" opacity="0.07" strokeDasharray="3 9" />
       <line x1="105" y1="105" x2="575" y2="575" stroke="#22d3ee" strokeWidth="0.5" opacity="0.04" strokeDasharray="3 9" />
       <line x1="575" y1="105" x2="105" y2="575" stroke="#22d3ee" strokeWidth="0.5" opacity="0.04" strokeDasharray="3 9" />
-      {/* Rotating sweep — uses CSS class for transform-origin support */}
+      {/* Rotating sweep â€” uses CSS class for transform-origin support */}
       <g className="radar-sweep">
         <path d="M340,340 L340,12 A328,328 0 0,1 600,492 Z" fill="#22d3ee" opacity="0.07" />
         <line x1="340" y1="340" x2="340" y2="14" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
       </g>
-      {/* Blip 1 — red threat */}
+      {/* Blip 1 â€” red threat */}
       <circle cx="462" cy="186" r="4" fill="#ef4444" opacity="0">
         <animate attributeName="opacity" values="0;0;1;0.7;0.3;0" keyTimes="0;0.25;0.28;0.50;0.75;1" dur="5s" repeatCount="indefinite" />
       </circle>
@@ -196,7 +186,7 @@ function RadarScanner() {
         <animate attributeName="opacity" values="0;0;0.6;0;0" keyTimes="0;0.25;0.30;0.50;1" dur="5s" repeatCount="indefinite" />
         <animate attributeName="r"       values="4;4;16;26;26"  keyTimes="0;0.25;0.32;0.52;1" dur="5s" repeatCount="indefinite" />
       </circle>
-      {/* Blip 2 — orange threat */}
+      {/* Blip 2 â€” orange threat */}
       <circle cx="234" cy="440" r="3.5" fill="#f97316" opacity="0">
         <animate attributeName="opacity" values="0;0;0.9;0.5;0.2;0" keyTimes="0;0.58;0.61;0.75;0.88;1" dur="5s" repeatCount="indefinite" />
       </circle>
@@ -215,12 +205,11 @@ function RadarScanner() {
 }
 
 const TERMINAL_LINES = [
-  [{ text: '// Initializing detection engine...', cls: 'text-gray-600' }],
-  [{ text: '[INFO] ', cls: 'text-cyan-400' }, { text: 'EWMA baseline established',         cls: 'text-green-400' }],
-  [{ text: '[INFO] ', cls: 'text-cyan-400' }, { text: 'Anomaly detection now active',       cls: 'text-green-400' }],
-  [{ text: '[ALERT] ', cls: 'text-red-400' }, { text: 'Rate 820 pps — 5.2x above avg 157', cls: 'text-white' }],
-  [{ text: '[ALERT] ', cls: 'text-red-400' }, { text: '98% certain: DDoS Attack', cls: 'text-white font-bold' }, { text: ' — saved to MongoDB', cls: 'text-gray-500' }],
-  [{ text: '[STATUS] ', cls: 'text-green-400' }, { text: 'IP 45.33.32.156 blocked. ✓', cls: 'text-green-300' }],
+  [{ text: '> Scanning network perimeter...', cls: 'text-gray-500' }],
+  [{ text: '  Baseline locked ', cls: 'text-green-400' }, { text: '-- all clear', cls: 'text-gray-500' }],
+  [{ text: '  [!] ', cls: 'text-yellow-400' }, { text: 'Traffic spike detected on ingress', cls: 'text-yellow-300' }],
+  [{ text: '  [X] ', cls: 'text-red-400' }, { text: 'Threat confirmed', cls: 'text-red-400 font-bold' }, { text: ' -- flooding pattern', cls: 'text-gray-500' }],
+  [{ text: '  [>] Source quarantined. Incident logged. ', cls: 'text-green-300' }, { text: '[OK]', cls: 'text-green-400 font-bold' }],
 ];
 
 function AnimatedTerminal() {
@@ -252,7 +241,7 @@ function AnimatedTerminal() {
   );
 }
 
-// â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬ Main Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const MATRIX_COLS = [
   { left: '3%',  text: ['FF','A3','78','0E','C2','91','3D','B8','22','6F'], dur: '9s',   delay: '0s'   },
   { left: '11%', text: ['22','D3','EE','06','B2','D5','88','14','5A','C0'], dur: '7s',   delay: '2.1s' },
@@ -284,17 +273,89 @@ function MatrixRain({ color = '#22d3ee', opacity = 1 }) {
   );
 }
 
-function PulseRings() {
+function CtaBackground() {
+  const nodes = [
+    { cx: '10%',  cy: '30%', r: 3,   color: '#ef4444', dur: '2.1s', delay: '0s'    },
+    { cx: '25%',  cy: '70%', r: 2.5, color: '#f97316', dur: '2.8s', delay: '0.5s'  },
+    { cx: '42%',  cy: '20%', r: 3,   color: '#ef4444', dur: '1.9s', delay: '1s'    },
+    { cx: '58%',  cy: '80%', r: 2.5, color: '#fbbf24', dur: '2.4s', delay: '0.3s'  },
+    { cx: '72%',  cy: '35%', r: 3,   color: '#ef4444', dur: '2.6s', delay: '0.8s'  },
+    { cx: '88%',  cy: '65%', r: 2.5, color: '#f97316', dur: '2.2s', delay: '1.4s'  },
+    { cx: '18%',  cy: '50%', r: 2,   color: '#fbbf24', dur: '3s',   delay: '0.2s'  },
+    { cx: '65%',  cy: '55%', r: 2,   color: '#ef4444', dur: '2.7s', delay: '1.1s'  },
+  ];
+  const lines = [
+    { x1: '10%', y1: '30%', x2: '25%', y2: '70%' },
+    { x1: '25%', y1: '70%', x2: '42%', y2: '20%' },
+    { x1: '42%', y1: '20%', x2: '72%', y2: '35%' },
+    { x1: '72%', y1: '35%', x2: '88%', y2: '65%' },
+    { x1: '58%', y1: '80%', x2: '88%', y2: '65%' },
+    { x1: '18%', y1: '50%', x2: '42%', y2: '20%' },
+    { x1: '65%', y1: '55%', x2: '72%', y2: '35%' },
+    { x1: '10%', y1: '30%', x2: '18%', y2: '50%' },
+  ];
+
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" aria-hidden>
-      {[0, 1, 2, 3].map(i => (
-        <div
-          key={i}
-          className="absolute rounded-full border border-red-500/20"
-          style={{ width: 80, height: 80, animation: 'ring-pulse 4s ease-out infinite', animationDelay: `${i}s` }}
-        />
-      ))}
-    </div>
+    <>
+      {/* Network threat map — animated nodes + connections */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+        {/* Connection lines */}
+        {lines.map((l, i) => (
+          <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+            stroke="#ef4444" strokeWidth="0.5" opacity="0"
+            style={{ animation: `cta-line-in 1s ease-out ${0.3 + i * 0.2}s forwards, cta-line-pulse 3s ease-in-out ${1.5 + i * 0.3}s infinite` }}
+          />
+        ))}
+        {/* Nodes */}
+        {nodes.map((n, i) => (
+          <g key={i}>
+            <circle cx={n.cx} cy={n.cy} r={n.r} fill={n.color} opacity="0"
+              style={{ animation: `cta-node-in 0.6s ease-out ${i * 0.15}s forwards` }}
+            />
+            <circle cx={n.cx} cy={n.cy} r={n.r} fill="none" stroke={n.color} strokeWidth="0.8"
+              style={{ animation: `cta-node-ring ${n.dur} ease-out ${n.delay} infinite` }}
+            />
+          </g>
+        ))}
+        {/* Travelling data packet */}
+        <circle r="2" fill="#22d3ee" opacity="0">
+          <animate attributeName="opacity" values="0;0.8;0" dur="4s" repeatCount="indefinite" />
+          <animateMotion dur="4s" repeatCount="indefinite"
+            path="M 80 120 L 200 280 L 336 80 L 576 140 L 704 260" />
+        </circle>
+        <circle r="1.5" fill="#ef4444" opacity="0">
+          <animate attributeName="opacity" values="0;0.6;0" dur="5s" begin="2s" repeatCount="indefinite" />
+          <animateMotion dur="5s" begin="2s" repeatCount="indefinite"
+            path="M 144 200 L 336 80 L 520 320 L 704 260" />
+        </circle>
+      </svg>
+
+      {/* Horizontal sweep beam */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"
+          style={{ animation: 'cta-sweep 7s linear infinite' }} />
+      </div>
+
+      {/* Corner reticles */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <svg className="absolute top-4 left-4" width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M0 12 L0 0 L12 0" stroke="#ef4444" strokeWidth="1.5" opacity="0.45"/>
+          <circle cx="0" cy="0" r="2" fill="#ef4444" opacity="0.4"/>
+        </svg>
+        <svg className="absolute top-4 right-4" width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M28 12 L28 0 L16 0" stroke="#ef4444" strokeWidth="1.5" opacity="0.45"/>
+          <circle cx="28" cy="0" r="2" fill="#ef4444" opacity="0.4"/>
+        </svg>
+        <svg className="absolute bottom-4 left-4" width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M0 16 L0 28 L12 28" stroke="#ef4444" strokeWidth="1.5" opacity="0.45"/>
+          <circle cx="0" cy="28" r="2" fill="#ef4444" opacity="0.4"/>
+        </svg>
+        <svg className="absolute bottom-4 right-4" width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <path d="M28 16 L28 28 L16 28" stroke="#ef4444" strokeWidth="1.5" opacity="0.45"/>
+          <circle cx="28" cy="28" r="2" fill="#ef4444" opacity="0.4"/>
+        </svg>
+      </div>
+    </>
   );
 }
 
@@ -304,7 +365,7 @@ export default function Home() {
       <div className="cyber-grid pointer-events-none" aria-hidden />
       <div className="scanline pointer-events-none" aria-hidden />
 
-      {/* â”€â”€ Navbar â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Navbar Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <header className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <span className="text-2xl text-cyan-400">&#9888;</span>
@@ -320,28 +381,7 @@ export default function Home() {
         </nav>
       </header>
 
-      {/* â”€â”€ Live Threat Ticker â”€â”€ */}
-      <div className="relative z-10 bg-gray-950/95 border-b border-red-900/30 overflow-hidden py-2 flex items-center">
-        <div className="shrink-0 flex items-center gap-2 px-4 font-mono text-xs font-bold text-red-400 border-r border-gray-800 tracking-widest mr-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          LIVE
-        </div>
-        <div className="overflow-hidden flex-1">
-          <div className="animate-marquee inline-flex whitespace-nowrap">
-            {[...TICKER_EVENTS, ...TICKER_EVENTS].map((e, i) => (
-              <span key={i} className="font-mono text-xs inline-flex items-center gap-2 px-6">
-                <span className={`font-bold ${e.color}`}>[{e.type}]</span>
-                <span className="text-gray-500">{e.ip}</span>
-                <span className="text-green-500">&#9679; BLOCKED</span>
-                <span className="text-orange-300">{e.certainty}% certain</span>
-                <span className="text-gray-800 mx-2"> | </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* â”€â”€ Hero â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Hero Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <section className="relative z-10 flex flex-col items-center text-center px-6 pt-24 pb-20 overflow-hidden">
         {/* Glow orb */}
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -377,7 +417,7 @@ export default function Home() {
 
         <p style={{ animation: 'fade-up 0.7s ease-out 0.6s both' }} className="relative max-w-2xl text-lg text-gray-400 mb-10 leading-relaxed">
           Sentinel-Stream is a real-time network intrusion detection system. It streams live traffic,
-          learns your baseline, and flags DDoS attacks, brute-force attempts, and zero-day anomalies &mdash;
+          learns your baseline, and flags DDoS attacks, brute-force attempts, and zero-day anomalies
 
           all in under a second.
         </p>
@@ -397,13 +437,13 @@ export default function Home() {
             <span className="w-3 h-3 rounded-full bg-red-500" />
             <span className="w-3 h-3 rounded-full bg-yellow-500" />
             <span className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="ml-2 text-xs text-gray-400 font-mono">detection-engine.js</span>
+            <span className="ml-2 text-xs text-gray-400 font-mono">sentinel // live feed</span>
           </div>
           <AnimatedTerminal />
         </div>
       </section>
 
-      {/* â”€â”€ Network Topology Map â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Network Topology Map Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <section className="relative z-10 py-12 px-6 border-y border-gray-800/50 bg-gray-900/20">
         <p className="font-mono text-xs text-gray-600 uppercase tracking-widest text-center mb-10">
           // live network topology
@@ -441,7 +481,7 @@ export default function Home() {
               <div className={`relative w-11 h-11 rounded-full border-2 flex items-center justify-center text-lg ${
                 node.status === 'shield'   ? 'border-cyan-500 bg-cyan-950/80 shadow-lg shadow-cyan-500/30' :
                 node.status === 'attacked' ? 'border-red-500  bg-red-950/80  shadow-lg shadow-red-500/30' :
-                                             'border-gray-700 bg-gray-900'
+                                             'border-green-500 bg-green-950/80 shadow-lg shadow-green-500/30'
               }`}>
                 {node.icon}
                 {node.status !== 'normal' && (
@@ -458,7 +498,7 @@ export default function Home() {
               <span className={`font-mono text-xs ${
                 node.status === 'shield'   ? 'text-cyan-400' :
                 node.status === 'attacked' ? 'text-red-400'  :
-                                             'text-gray-600'
+                                             'text-green-400'
               }`}>
                 {node.id}
               </span>
@@ -467,7 +507,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* â”€â”€ Features â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Features Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <section id="features" className="relative z-10 py-24 px-6 overflow-hidden">
         <MatrixRain opacity={0.35} />
         <div className="max-w-6xl mx-auto relative">
@@ -475,7 +515,7 @@ export default function Home() {
             Industry-Level Security, <span className="text-cyan-400">Out of the Box</span>
           </h2>
           <p className="text-center text-gray-400 mb-14 max-w-xl mx-auto">
-            Every pillar of a real SOC platform &mdash; built with the MERN stack and Socket.io.
+            Every pillar of a real SOC platform.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f) => (
@@ -493,21 +533,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* â”€â”€ CTA â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ CTA Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <section className="relative z-10 py-24 px-6 text-center overflow-hidden">
-        <PulseRings />
-        <MatrixRain color="#ef4444" opacity={0.4} />
-        {/* Vertical scan beam */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-          <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/35 to-transparent" style={{ animation: 'h-scan 5s ease-in-out infinite' }} />
-        </div>
-        {/* Corner reticle brackets */}
-        <div className="absolute inset-8 pointer-events-none" aria-hidden>
-          <div className="absolute top-0 left-0 w-10 h-10 border-t border-l border-red-500/35" />
-          <div className="absolute top-0 right-0 w-10 h-10 border-t border-r border-red-500/35" />
-          <div className="absolute bottom-0 left-0 w-10 h-10 border-b border-l border-red-500/35" />
-          <div className="absolute bottom-0 right-0 w-10 h-10 border-b border-r border-red-500/35" />
-        </div>
+        <CtaBackground />
         <div className="max-w-2xl mx-auto relative">
           <div className="inline-block mb-6 px-4 py-1 text-xs tracking-widest text-red-400 uppercase border border-red-800 rounded-full bg-red-950/30">
             Threats are live. Are you watching?
@@ -524,9 +552,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* â”€â”€ Footer â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <footer className="relative z-10 border-t border-gray-800 text-center py-6 text-gray-600 text-sm">
-        Sentinel-Stream &middot; AI-Powered Intrusion Detection &middot; Built with MERN + Socket.io
+        &copy; {new Date().getFullYear()} Sentinel Stream &middot; AI Powered Intrusion Detection &middot; All Rights Reserved
       </footer>
     </div>
   );

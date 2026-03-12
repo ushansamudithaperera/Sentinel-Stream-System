@@ -98,7 +98,6 @@ function SecurityOpsModal({ open, onClose, blacklist, onUnblock, onClearAll }) {
         <div className="p-5 max-h-[60vh] overflow-y-auto">
           {blacklist.length === 0 ? (
             <div className="py-10 text-center">
-              <p className="text-3xl mb-2">\ud83d\udee1\ufe0f</p>
               <p className="font-mono text-sm text-cyan-400">// no blacklisted IPs &mdash; all clear</p>
             </div>
           ) : (
