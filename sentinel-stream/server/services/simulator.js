@@ -1,17 +1,14 @@
+const mongoose   = require('mongoose');
 const TrafficLog = require('../models/TrafficLog');
+const Alert      = require('../models/Alert');
 const { detect } = require('./detectionEngine');
 
-// ─── Rhythm ───────────────────────────────────────────────────────────────────
+// ─── Timing ───────────────────────────────────────────────────────────────────
 const INTERVAL_MS     = 2000;   // emit every 2 s
-const CYCLE_MS        = 60000;  // full loop: 60 s wallclock
-const NORMAL_PHASE_MS = 50000;  // 0–50 s → Normal phase  |  50–60 s → Attack phase
+const CYCLE_MS        = 60000;  // full loop: 60 s
+const NORMAL_PHASE_MS = 50000;  // 0–50 s → Normal  |  50–60 s → Attack
 
-// ─── Metric notes ─────────────────────────────────────────────────────────────
-//   Business hours (08:00–18:00) MODERATE : 140–420  pkt/s, ~1.0–2.5 Mbps
-//   Off-peak        (all other)   QUIET   :  20–85   pkt/s, ~0.1–0.5 Mbps
-//   Mirai-class DDoS attack       DDOS    : 5000–10000 pkt/s, 8.0–12.0 Mbps
-//   AI detection                          : probability → 99 during attack (>90%)
-
+// ─── IP Pools ─────────────────────────────────────────────────────────────────
 const ATTACKER_IPS = [
   '45.33.32.156', '198.51.100.42', '203.0.113.99',  '185.220.101.56',
   '104.21.14.80', '89.248.167.131','196.52.43.27',  '193.32.162.55',
@@ -22,70 +19,186 @@ const LEGIT_IPS = [
   '172.217.0.0', '142.250.0.0',
 ];
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function jitter(base, noise) {
-  return base + (Math.random() + Math.random() - 1) * base * noise;
-}
+// ─── Normal Profiles (time-of-day) ───────────────────────────────────────────
+//   QUIET    : Off-peak hours  — 20–80   pkt/s,  <1 Mbps
+//   MODERATE : Business hours  — 150–450 pkt/s, 1–2 Mbps
+const NORMAL_PROFILES = {
+  QUIET: {
+    label: 'QUIET',
+    rateMin: 20,  rateMax: 80,
+    bwMin:  100,  bwMax:  900,
+    connMin: 2,   connMax: 8,
+    protocols: ['HTTPS', 'DNS', 'HTTP'],
+  },
+  MODERATE: {
+    label: 'MODERATE',
+    rateMin: 150, rateMax: 450,
+    bwMin:  1000, bwMax:  2000,
+    connMin: 5,   connMax: 20,
+    protocols: ['HTTPS', 'HTTPS', 'HTTP', 'DNS'],
+  },
+};
+
+// ─── Attack Scenarios (one randomly selected each 10 s attack window) ────────
+//   BRUTEFORCE : 600–900   pkt/s, 1–2 Mbps,   high conn/sec (60–100), SSH
+//   ANOMALY    : 1500–3000 pkt/s, 4–6 Mbps,   unknown protocol
+//   DDOS       : 10k–20k   pkt/s, 15–25 Mbps, volumetric flood
+const ATTACK_SCENARIOS = [
+  {
+    label:       'BRUTEFORCE',
+    alertType:   'BruteForce',
+    severity:    'High',
+    rateMin:     600,   rateMax:  900,
+    bwMin:      1000,   bwMax:   2000,
+    connMin:      60,   connMax:  100,
+    pktMin:      100,   pktMax:   350,
+    protocols:   ['SSH', 'SSH', 'SSH', 'TCP'],
+    probability: 94,
+  },
+  {
+    label:       'ANOMALY',
+    alertType:   'Anomaly',
+    severity:    'High',
+    rateMin:    1500,   rateMax:  3000,
+    bwMin:      4000,   bwMax:   6000,
+    connMin:      30,   connMax:    80,
+    pktMin:      150,   pktMax:   500,
+    protocols:   ['Unknown', 'Unknown', 'Unknown'],
+    probability: 91,
+  },
+  {
+    label:       'DDOS',
+    alertType:   'DDoS',
+    severity:    'High',
+    rateMin:   10000,   rateMax: 20000,
+    bwMin:     15000,   bwMax:  25000,
+    connMin:     400,   connMax:  1400,
+    pktMin:       64,   pktMax:   512,
+    protocols:   ['UDP', 'TCP-SYN', 'TCP-SYN', 'ICMP', 'UDP'],
+    probability: 99,
+  },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function pick(arr)        { return arr[Math.floor(Math.random() * arr.length)]; }
+function jitter(base, n)  { return base + (Math.random() + Math.random() - 1) * base * n; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(v))); }
+function rand(lo, hi)     { return clamp(jitter((lo + hi) / 2, 0.18), lo, hi); }
+function isDbReady()      { return mongoose.connection.readyState === 1; }
 
-// ─── Time-of-day profile ──────────────────────────────────────────────────────
-//   Returns the normal-phase traffic envelope based on current system hour.
-function getTimeProfile() {
+// ─── Time-of-day normal profile ───────────────────────────────────────────────
+function getNormalProfile() {
   const hour = new Date().getHours();
-  if (hour >= 8 && hour < 18) {
-    // Business hours: typical webserver/enterprise load
-    return { label: 'MODERATE', rateMin: 140, rateMax: 420, bwMin: 1000, bwMax: 2500 };
-  }
-  // Off-peak: minimal background traffic
-  return { label: 'QUIET', rateMin: 20, rateMax: 85, bwMin: 100, bwMax: 500 };
+  return (hour >= 8 && hour < 18) ? NORMAL_PROFILES.MODERATE : NORMAL_PROFILES.QUIET;
 }
 
-// ─── Simulator ───────────────────────────────────────────────────────────────
+// ─── Simulator ────────────────────────────────────────────────────────────────
 function startSimulator(io) {
-  let attackerIp = pick(ATTACKER_IPS);
+  let lastAttackCycleId = -1;   // which 60 s cycle last wrote an Alert to DB
+  let currentAttack     = null; // attack scenario locked in for the active 10 s window
+  let attackerIp        = pick(ATTACKER_IPS);
 
   setInterval(async () => {
-    // Rhythmic 25-second cycle driven by wall-clock time (no tickIndex drift)
-    const cyclePos = Date.now() % CYCLE_MS;
-    const isAttack = cyclePos >= NORMAL_PHASE_MS;
-    const profile  = getTimeProfile();
+    const now        = Date.now();
+    const cycleId    = Math.floor(now / CYCLE_MS);
+    const cyclePos   = now % CYCLE_MS;
+    const isAttack   = cyclePos >= NORMAL_PHASE_MS;
+    const isNewCycle = isAttack && (cycleId !== lastAttackCycleId);
 
-    let rate, packetSize, bandwidth, connectionRate, ip, protocol, scenario;
-
+    // ── Attack Phase (10 s) ──────────────────────────────────────────────────
     if (isAttack) {
-      // ── Mirai-class DDoS spike (10 s window) ──────────────────────────────
-      //    Small fragmented packets maximise connection-table exhaustion;
-      //    flood volume in the 8–12 Mbps range matches observed Mirai campaigns.
-      rate           = clamp(jitter(7500,  0.15), 5000, 10000);
-      bandwidth      = clamp(jitter(10000, 0.12), 8000, 12000); // Kbps → 8–12 Mbps
-      packetSize     = clamp(jitter(250,   0.20), 64,   512);   // small fragmented pkts
-      connectionRate = clamp(jitter(850,   0.20), 400,  1400);
-      ip             = attackerIp;
-      protocol       = pick(['UDP', 'TCP-SYN', 'TCP-SYN', 'ICMP', 'UDP']);
-      scenario       = 'DDOS';
-      attackerIp     = pick(ATTACKER_IPS); // rotate attacker each tick
+      // On the FIRST tick of a new attack window: lock in scenario + attacker
+      if (isNewCycle) {
+        currentAttack     = pick(ATTACK_SCENARIOS);
+        lastAttackCycleId = cycleId;
+        attackerIp        = pick(ATTACKER_IPS);
+      }
+
+      const atk            = currentAttack;
+      const rate           = rand(atk.rateMin, atk.rateMax);
+      const bandwidth      = rand(atk.bwMin,   atk.bwMax);
+      const packetSize     = rand(atk.pktMin,  atk.pktMax);
+      const connectionRate = rand(atk.connMin, atk.connMax);
+      const protocol       = pick(atk.protocols);
+      const ip             = attackerIp;
+      const bwLabel        = bandwidth >= 1000
+        ? `${(bandwidth / 1000).toFixed(1)} Mbps`
+        : `${bandwidth} Kbps`;
+
+      // Save TrafficLog every tick so the chart has continuous data points
+      if (isDbReady()) {
+        try {
+          await new TrafficLog({ ip, protocol, packetSize, rate, bandwidth, connectionRate }).save();
+        } catch (e) {
+          console.error('[simulator] TrafficLog save error:', e.message);
+        }
+      }
+
+      // Save ONE Alert and emit detectionUpdate ONLY on the first tick of this cycle
+      // This ensures MongoDB gets exactly 1 document per attack event, not 5.
+      if (isNewCycle && isDbReady()) {
+        try {
+          const alert = await new Alert({
+            type:     atk.alertType,
+            severity: atk.severity,
+            details:  `[${atk.label}] ${rate.toLocaleString()} pkt/s / ${bwLabel} from ${ip} — ${atk.probability}% certain`,
+          }).save();
+
+          io.emit('detectionUpdate', {
+            ip, protocol, packetSize, rate, bandwidth, connectionRate,
+            status:      'Malicious',
+            alertId:     alert._id,
+            probability: atk.probability,
+            mode:        'active',
+            scenario:    atk.label,
+            attackType:  atk.label,
+          });
+        } catch (e) {
+          console.error('[simulator] Alert save error:', e.message);
+        }
+      }
+
+      // trafficUpdate every tick for live chart continuity
+      io.emit('trafficUpdate', {
+        timestamp: new Date(),
+        ip, protocol, packetSize, rate, bandwidth, connectionRate,
+        scenario:   atk.label,
+        attackType: atk.label,
+        mode:       'active',
+      });
+
+    // ── Normal Phase (50 s) ──────────────────────────────────────────────────
     } else {
-      // ── Normal baseline (15 s window) — envelope comes from time profile ──
-      const midRate  = (profile.rateMin + profile.rateMax) / 2;
-      const midBw    = (profile.bwMin   + profile.bwMax)   / 2;
-      rate           = clamp(jitter(midRate, 0.18), profile.rateMin, profile.rateMax);
-      bandwidth      = clamp(jitter(midBw,   0.18), profile.bwMin,   profile.bwMax);
-      packetSize     = clamp(jitter(700,     0.20), 400,  1200);
-      connectionRate = clamp(jitter(8,       0.35), 3,    16);
-      ip             = pick(LEGIT_IPS);
-      protocol       = pick(['HTTPS', 'HTTPS', 'HTTP', 'DNS']);
-      scenario       = profile.label; // 'MODERATE' or 'QUIET'
+      const profile        = getNormalProfile();
+      const rate           = rand(profile.rateMin, profile.rateMax);
+      const bandwidth      = rand(profile.bwMin,   profile.bwMax);
+      const packetSize     = clamp(jitter(700, 0.20), 400, 1200);
+      const connectionRate = rand(profile.connMin,  profile.connMax);
+      const protocol       = pick(profile.protocols);
+      const ip             = pick(LEGIT_IPS);
+
+      if (isDbReady()) {
+        try {
+          await new TrafficLog({ ip, protocol, packetSize, rate, bandwidth, connectionRate }).save();
+        } catch (e) {
+          console.error('[simulator] TrafficLog save error:', e.message);
+        }
+      }
+
+      // Run EWMA/Z-score detection on normal traffic — may fire for real anomalies
+      const { status, alertId, probability, mode } = isDbReady()
+        ? await detect({ ip, protocol, packetSize, rate, bandwidth, connectionRate, scenario: profile.label })
+        : { status: 'Safe', alertId: null, probability: 0, mode: 'learning' };
+
+      io.emit('trafficUpdate', {
+        timestamp: new Date(), ip, protocol, packetSize, rate, bandwidth, connectionRate,
+        scenario: profile.label, mode,
+      });
+      io.emit('detectionUpdate', {
+        ip, protocol, packetSize, rate, bandwidth, connectionRate,
+        status, alertId, probability, mode, scenario: profile.label,
+      });
     }
-
-    const log = new TrafficLog({ ip, protocol, packetSize, rate, bandwidth, connectionRate });
-    await log.save();
-
-    // AI detection: during attack phase the rate is 12–70× above baseline avg,
-    // far exceeding the DDoS multiplier (5×) → probability locked to 99 (>90%).
-    const { status, alertId, probability, mode } = await detect({ ...log.toObject(), scenario });
-
-    io.emit('trafficUpdate',   { timestamp: new Date(), ip, protocol, packetSize, rate, bandwidth, connectionRate, scenario, mode });
-    io.emit('detectionUpdate', { ...log.toObject(), status, alertId, probability, mode, scenario });
   }, INTERVAL_MS);
 }
 

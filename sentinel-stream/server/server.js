@@ -12,15 +12,15 @@ const io = socketio(server, {
   cors: { origin: process.env.CLIENT_URL, methods: ['GET', 'POST'] }
 });
 
-// Start traffic simulator once Socket.io is initialized
-startSimulator(io);
-
-connectDB();
-
-// Socket.io placeholder
+// Socket.io connection logging
 io.on('connection', (socket) => {
   console.log('Client connected');
   socket.on('disconnect', () => console.log('Client disconnected'));
+});
+
+// Connect to DB first, then start simulator so all DB writes are safe
+connectDB().then(() => {
+  startSimulator(io);
 });
 
 server.listen(PORT, () => console.log(`Server on port ${PORT}`));

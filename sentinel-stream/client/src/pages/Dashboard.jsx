@@ -21,6 +21,24 @@ function fmtBw(kbps) {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mbps` : `${kbps} Kbps`;
 }
 
+// Extracts rate, bandwidth, ip, probability from the stored details string
+// so DB-seeded alert rows render the same as live socket rows.
+function parseAlertDetails(details = '') {
+  const rateMatch = details.match(/(\d[\d,]*)\s*pkt\/s/);
+  const bwMbps    = details.match(/([\d.]+)\s*Mbps/);
+  const bwKbps    = details.match(/(\d+)\s*Kbps/);
+  const ipMatch   = details.match(/from\s+([\d.]+)/);
+  const probMatch = details.match(/(\d+)%\s*certain/);
+  return {
+    rate:        rateMatch  ? parseInt(rateMatch[1].replace(/,/g, ''), 10) : undefined,
+    bandwidth:   bwMbps    ? Math.round(parseFloat(bwMbps[1]) * 1000)
+               : bwKbps   ? parseInt(bwKbps[1], 10)
+               : undefined,
+    ip:          ipMatch   ? ipMatch[1]  : undefined,
+    probability: probMatch ? parseInt(probMatch[1], 10) : 0,
+  };
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
     const d = payload[0]?.payload || {};
@@ -95,6 +113,7 @@ function ConfirmDialog({ confirm, onConfirm, onCancel, loading }) {
 const Dashboard = () => {
   const [data, setData] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [threatCount, setThreatCount] = useState(null); // null = loading from DB
   const [mode, setMode] = useState('learning');
   const [scenario, setScenario] = useState(null);
   const [liveStats, setLiveStats] = useState({ rate: 0, bandwidth: 0, connectionRate: 0, protocol: '-' });
@@ -108,6 +127,46 @@ const Dashboard = () => {
       .then(res => setUser(res.data))
       .catch(() => navigate('/login'));
   }, [navigate]);
+
+  // ── Seed initial state from DB on mount so navigating away and back never resets ──
+  useEffect(() => {
+    // Threat count — total unique Alert documents
+    axios.get('http://localhost:5000/api/threats/count', { withCredentials: true })
+      .then(res => setThreatCount(res.data.count))
+      .catch(() => setThreatCount(0));
+
+    // Recent traffic — pre-populate the chart with history
+    axios.get('http://localhost:5000/api/traffic/recent', { withCredentials: true })
+      .then(res => {
+        const seeded = res.data.map(r => ({
+          name:           new Date(r.timestamp).toLocaleTimeString(),
+          rate:           r.rate,
+          bandwidth:      r.bandwidth,
+          connectionRate: r.connectionRate,
+          protocol:       r.protocol,
+          scenario:       r.scenario ?? null,
+        }));
+        setData(seeded);
+      })
+      .catch(() => {});
+
+    // Alert feed — restore persisted threats so navigating away never clears the list
+    axios.get('http://localhost:5000/api/logs', { withCredentials: true })
+      .then(res => {
+        // /api/logs returns newest-first; map DB docs to the same shape socket events use
+        const seeded = res.data.slice(0, 50).map(doc => ({
+          alertId:     doc._id,
+          status:      'Malicious',
+          details:     doc.details,
+          timestamp:   doc.timestamp,
+          adminAction: doc.adminAction,
+          scenario:    doc.type?.toUpperCase() ?? 'DDOS',
+          ...parseAlertDetails(doc.details),
+        }));
+        setAlerts(seeded);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     socket.on('trafficUpdate', (newData) => {
@@ -132,7 +191,14 @@ const Dashboard = () => {
     socket.on('detectionUpdate', (update) => {
       if (update.mode) setMode(update.mode);
       if (update.status !== 'Safe' && update.status !== 'Learning') {
-        setAlerts((prev) => [update, ...prev].slice(0, 50));
+        setAlerts((prev) => {
+          // Deduplicate: skip if this alertId was already loaded from DB
+          if (update.alertId && prev.some(a => String(a.alertId) === String(update.alertId))) {
+            return prev;
+          }
+          setThreatCount(c => (c ?? 0) + 1);
+          return [update, ...prev].slice(0, 50);
+        });
       }
     });
 
@@ -146,6 +212,7 @@ const Dashboard = () => {
     try {
       await axios.delete('http://localhost:5000/api/logs', { withCredentials: true });
       setAlerts([]);
+      setThreatCount(0);
     } catch (err) {
       console.error('Failed to clear logs:', err);
     }
@@ -177,7 +244,7 @@ const Dashboard = () => {
 
   const maliciousCount = alerts.filter(a => a.status === 'Malicious').length;
   const suspiciousCount = alerts.filter(a => a.status !== 'Malicious').length;
-  const isAttack = scenario === 'DDOS';
+  const isAttack = scenario === 'DDOS' || scenario === 'BRUTEFORCE' || scenario === 'ANOMALY';
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
@@ -253,7 +320,7 @@ const Dashboard = () => {
             { label: 'Bandwidth',     value: fmtBw(liveStats.bandwidth) || '—', color: 'text-green-400', border: 'border-green-900' },
             { label: 'Conn/sec',      value: liveStats.connectionRate,        color: 'text-orange-400', border: 'border-orange-900' },
             { label: 'Protocol',      value: liveStats.protocol,              color: 'text-purple-400', border: 'border-purple-900' },
-            { label: 'Threats',       value: alerts.length,                   color: 'text-red-400',    border: 'border-red-900' },
+            { label: 'Threats',       value: threatCount ?? '…',              color: 'text-red-400',    border: 'border-red-900' },
             { label: 'System Status', value: mode === 'learning' ? 'LEARNING' : 'ACTIVE', color: mode === 'learning' ? 'text-blue-400' : 'text-green-400', border: mode === 'learning' ? 'border-blue-900' : 'border-green-900' },
           ].map(({ label, value, color, border }) => (
             <div key={label} className={`bg-gray-900/70 border ${border} rounded-lg px-4 py-3`}>

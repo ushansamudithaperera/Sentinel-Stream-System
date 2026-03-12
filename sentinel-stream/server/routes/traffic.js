@@ -1,9 +1,30 @@
 const express = require('express');
 const { protect, admin } = require('../middlewares/auth');
-const Alert = require('../models/Alert');
+const Alert      = require('../models/Alert');
+const TrafficLog = require('../models/TrafficLog');
 const { getMode, applyFeedback, getModelStats } = require('../services/detectionEngine');
 
 const router = express.Router();
+
+// GET /api/threats/count — total unique threat records in the DB (auth required)
+router.get('/threats/count', protect, async (req, res) => {
+  try {
+    const count = await Alert.countDocuments({});
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to fetch threat count' });
+  }
+});
+
+// GET /api/traffic/recent — last 25 traffic records to seed the live chart
+router.get('/traffic/recent', protect, async (req, res) => {
+  try {
+    const records = await TrafficLog.find({}).sort({ timestamp: -1 }).limit(25).lean();
+    res.json(records.reverse()); // oldest-first so the chart renders left-to-right
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to fetch recent traffic' });
+  }
+});
 
 // GET /api/logs — all alerts newest-first (admin only)
 router.get('/logs', protect, admin, async (req, res) => {
