@@ -116,7 +116,7 @@ const AlertDetail = () => {
                 </Field>
 
                 <Field label="Timestamp">
-                  {new Date(alert.timestamp).toLocaleString()}
+                  {new Date(alert.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Colombo' })}
                 </Field>
 
                 <Field label="Attack Type">
@@ -138,7 +138,7 @@ const AlertDetail = () => {
                     <span className="text-cyan-400 font-bold">{alert.duration}s</span>
                     {alert.attackStartedAt && alert.attackEndedAt && (
                       <span className="text-gray-500 text-xs ml-2">
-                        ({new Date(alert.attackStartedAt).toLocaleTimeString()} — {new Date(alert.attackEndedAt).toLocaleTimeString()})
+                        ({new Date(alert.attackStartedAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' })} — {new Date(alert.attackEndedAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' })})
                       </span>
                     )}
                   </Field>

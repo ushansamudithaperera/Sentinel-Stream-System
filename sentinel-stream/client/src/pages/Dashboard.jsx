@@ -115,7 +115,7 @@ function SecurityOpsModal({ open, onClose, blacklist, onUnblock, onClearAll }) {
                   <tr key={entry._id || i} className="border-b border-gray-800/50 hover:bg-slate-800/40 transition-colors">
                     <td className="py-2.5 px-3 text-red-400 font-bold">{entry.ip}</td>
                     <td className="py-2.5 px-3 text-gray-400 max-w-xs truncate">{entry.reason}</td>
-                    <td className="py-2.5 px-3 text-gray-500">{new Date(entry.timestamp).toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-gray-500">{new Date(entry.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Colombo' })}</td>
                     <td className="py-2.5 px-3">
                       <button
                         onClick={() => onUnblock(entry.ip)}
@@ -272,7 +272,7 @@ const Dashboard = () => {
     axios.get('http://localhost:5000/api/traffic/recent', { withCredentials: true })
       .then(res => {
         const seeded = res.data.map(r => ({
-          name:           new Date(r.timestamp).toLocaleTimeString(),
+          name:           new Date(r.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' }),
           rate:           r.rate,
           bandwidth:      r.bandwidth,
           connectionRate: r.connectionRate,
@@ -312,7 +312,7 @@ const Dashboard = () => {
   useEffect(() => {
     socket.on('trafficUpdate', (newData) => {
       setData((prev) => [...prev.slice(-60), {
-        name: new Date(newData.timestamp).toLocaleTimeString(),
+        name: new Date(newData.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' }),
         rate: newData.rate,
         bandwidth: newData.bandwidth,
         connectionRate: newData.connectionRate,
@@ -700,7 +700,7 @@ const Dashboard = () => {
                   <li key={sa.alertId || i} className="text-xs font-mono text-orange-200 flex items-center gap-2">
                     <span className="text-orange-500">⛔</span>
                     <span>IP <span className="text-white font-bold">{sa.ip}</span> locked out after <span className="text-white font-bold">{sa.attempts}</span> failed attempts</span>
-                    <span className="text-orange-600 ml-auto">{new Date(sa.timestamp).toLocaleTimeString()}</span>
+                    <span className="text-orange-600 ml-auto">{new Date(sa.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' })}</span>
                   </li>
                 ))}
               </ul>
@@ -774,7 +774,7 @@ const Dashboard = () => {
                                 {alert.connectionRate > 0 ? <>{' | '}Conn/s: <span className="text-orange-300">{alert.connectionRate}</span></> : null}
                                 {alert.protocol ? <>{' | '}Proto: <span className="text-purple-300">{alert.protocol}</span></> : null}
                                 {' | '}IP: <span className="text-gray-200">{alert.ip}</span>
-                                {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
+                                {' | '}{new Date(alert.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' })}
                               </span>
                             </div>
                             {alert.details && (
@@ -888,7 +888,7 @@ const Dashboard = () => {
                             <span className="text-xs font-mono text-gray-400">
                               Type: <span className="text-gray-200">{alert.type || 'Unknown'}</span>
                               {' | '}IP: <span className="text-gray-600 tracking-widest">***.***.***.***</span>
-                              {' | '}{new Date(alert.timestamp).toLocaleTimeString()}
+                              {' | '}{new Date(alert.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' })}
                             </span>
                           </div>
                           <span className="shrink-0 text-xs font-mono text-yellow-700 border border-yellow-900/40 px-2 py-0.5 rounded whitespace-nowrap">

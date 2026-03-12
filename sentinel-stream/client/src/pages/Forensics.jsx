@@ -275,7 +275,7 @@ const Forensics = () => {
                       >
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className="font-mono text-xs text-gray-400">
-                            {new Date(log.timestamp).toLocaleString()}
+                            {new Date(log.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Colombo' })}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
