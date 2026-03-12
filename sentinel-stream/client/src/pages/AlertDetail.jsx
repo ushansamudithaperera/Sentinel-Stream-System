@@ -132,6 +132,17 @@ const AlertDetail = () => {
                     {alert.severity}
                   </span>
                 </Field>
+
+                {alert.duration != null && (
+                  <Field label="Attack Duration">
+                    <span className="text-cyan-400 font-bold">{alert.duration}s</span>
+                    {alert.attackStartedAt && alert.attackEndedAt && (
+                      <span className="text-gray-500 text-xs ml-2">
+                        ({new Date(alert.attackStartedAt).toLocaleTimeString()} — {new Date(alert.attackEndedAt).toLocaleTimeString()})
+                      </span>
+                    )}
+                  </Field>
+                )}
               </div>
 
               {/* Details */}

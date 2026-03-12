@@ -199,7 +199,10 @@ const Dashboard = () => {
   const [securityAlerts, setSecurityAlerts] = useState([]);
   const [showSecOpsModal, setShowSecOpsModal] = useState(false);
   const [chartMode, setChartMode] = useState('combined'); // 'combined' | 'split'
+  const [attackElapsed, setAttackElapsed] = useState(0);   // live stopwatch seconds
+  const [lastDuration, setLastDuration]   = useState(null); // most recent attack duration
   const seenAlertIds = useRef(new Set());
+  const stopwatchRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -296,10 +299,22 @@ const Dashboard = () => {
         .catch(() => {});
     });
 
+    socket.on('attackEnded', ({ duration }) => {
+      setLastDuration(duration);
+      // Stop the stopwatch
+      if (stopwatchRef.current) {
+        clearInterval(stopwatchRef.current);
+        stopwatchRef.current = null;
+      }
+      setAttackElapsed(0);
+    });
+
     return () => {
       socket.off('trafficUpdate');
       socket.off('detectionUpdate');
       socket.off('securityAlert');
+      socket.off('attackEnded');
+      if (stopwatchRef.current) clearInterval(stopwatchRef.current);
     };
   }, []);
 
@@ -352,6 +367,24 @@ const Dashboard = () => {
   const maliciousCount = alerts.filter(a => a.status === 'Malicious').length;
   const suspiciousCount = alerts.filter(a => a.status !== 'Malicious').length;
   const isAttack = scenario === 'DDOS' || scenario === 'BRUTEFORCE' || scenario === 'ANOMALY';
+
+  // Start / stop the live stopwatch when attack status changes
+  useEffect(() => {
+    if (isAttack) {
+      setLastDuration(null);
+      if (!stopwatchRef.current) {
+        setAttackElapsed(0);
+        stopwatchRef.current = setInterval(() => {
+          setAttackElapsed(prev => prev + 1);
+        }, 1000);
+      }
+    } else {
+      if (stopwatchRef.current) {
+        clearInterval(stopwatchRef.current);
+        stopwatchRef.current = null;
+      }
+    }
+  }, [isAttack]);
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
@@ -422,6 +455,16 @@ const Dashboard = () => {
                   : 'bg-green-400 animate-pulse'
             }`} />
             {mode === 'learning' ? '● Learning Mode' : isAttack ? '● Attack Detected' : '● Active Detection'}
+            {isAttack && (
+              <span className="ml-2 text-xs font-mono text-red-400 tabular-nums">
+                {String(Math.floor(attackElapsed / 60)).padStart(2, '0')}:{String(attackElapsed % 60).padStart(2, '0')}
+              </span>
+            )}
+            {!isAttack && lastDuration != null && (
+              <span className="ml-2 text-xs font-mono text-gray-500">
+                last: {lastDuration}s
+              </span>
+            )}
           </div>
         </div>
 

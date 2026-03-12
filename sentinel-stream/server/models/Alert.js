@@ -6,6 +6,9 @@ const alertSchema = new mongoose.Schema({
   severity: { type: String, enum: ['Low', 'Medium', 'High'] },
   details: { type: String },
   adminAction: { type: String, enum: ['pending', 'blocked', 'false_positive'], default: 'pending' },
+  duration: { type: Number, default: null },           // attack duration in seconds (set when attack ends)
+  attackStartedAt: { type: Date, default: null },
+  attackEndedAt:   { type: Date, default: null },
 });
 
 module.exports = mongoose.model('Alert', alertSchema);

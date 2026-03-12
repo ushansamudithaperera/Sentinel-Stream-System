@@ -255,7 +255,7 @@ const Forensics = () => {
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    {['Timestamp', 'Type', 'Severity', 'Details'].map(col => (
+                    {['Timestamp', 'Type', 'Severity', 'Duration', 'Details'].map(col => (
                       <th key={col} className="px-5 py-3 text-left text-xs font-mono font-semibold text-gray-500 uppercase tracking-widest">
                         {col}
                       </th>
@@ -294,6 +294,13 @@ const Forensics = () => {
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border text-xs font-mono font-semibold ${sev.badge}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
                             {log.severity}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="font-mono text-xs text-gray-400">
+                            {log.duration != null
+                              ? <span className="text-cyan-400 font-semibold">{log.duration}s</span>
+                              : <span className="text-gray-600">—</span>}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">

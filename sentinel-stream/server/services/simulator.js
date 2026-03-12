@@ -6,9 +6,10 @@ const Blacklist   = require('../models/Blacklist');
 const { detect }  = require('./detectionEngine');
 
 // ─── Timing ───────────────────────────────────────────────────────────────────
-const INTERVAL_MS     = 2000;   // emit every 2 s
-const CYCLE_MS        = 60000;  // full loop: 60 s
-const NORMAL_PHASE_MS = 50000;  // 0–50 s → Normal  |  50–60 s → Attack
+// Attack duration is randomly chosen each cycle:
+const INTERVAL_MS         = 2000;   // emit every 2 s
+const CYCLE_MS            = 60000;  // full loop: 60 s
+const ATTACK_DURATIONS    = [5000, 10000, 15000]; // 5, 10, or 15 s — picked randomly per cycle
 
 // ─── IP Pools ─────────────────────────────────────────────────────────────────
 const ATTACKER_IPS = [
@@ -110,8 +111,15 @@ function getNormalProfile() {
 // ─── Simulator ────────────────────────────────────────────────────────────────
 function startSimulator(io) {
   let lastAttackCycleId = -1;   // which 60 s cycle last wrote an Alert to DB
-  let currentAttack     = null; // attack scenario locked in for the active 10 s window
+  let currentAttack     = null; // attack scenario locked in for the active window
   let attackerIp        = pick(ATTACKER_IPS);
+
+  // Dynamic attack phase state (re-rolled each cycle)
+  let attackDurationMs  = 0;     // randomly chosen from ATTACK_DURATIONS
+  let normalPhaseMs     = 0;     // CYCLE_MS - attackDurationMs
+  let attackStartTime   = null;  // Date when attack phase began
+  let currentAlertId    = null;  // Alert _id for the current attack event
+  let attackEnded       = false; // flag: has the end-of-attack update been sent?
 
   // Brute-force injection state (reset each cycle)
   let bfAttemptCount = 0;
@@ -122,16 +130,27 @@ function startSimulator(io) {
     const now        = Date.now();
     const cycleId    = Math.floor(now / CYCLE_MS);
     const cyclePos   = now % CYCLE_MS;
-    const isAttack   = cyclePos >= NORMAL_PHASE_MS;
+
+    // On the FIRST tick of a brand-new 60 s cycle: roll a new attack duration
+    if (cycleId !== lastAttackCycleId && !currentAttack) {
+      attackDurationMs = pick(ATTACK_DURATIONS);
+      normalPhaseMs    = CYCLE_MS - attackDurationMs;
+      attackStartTime  = null;
+      currentAlertId   = null;
+      attackEnded      = false;
+    }
+
+    const isAttack   = cyclePos >= normalPhaseMs;
     const isNewCycle = isAttack && (cycleId !== lastAttackCycleId);
 
-    // ── Attack Phase (10 s) ──────────────────────────────────────────────────
+    // ── Attack Phase (dynamic: 5/10/15 s) ─────────────────────────────────────
     if (isAttack) {
-      // On the FIRST tick of a new attack window: lock in scenario + attacker
+      // On the FIRST tick of a new attack window: lock in scenario + attacker + start time
       if (isNewCycle) {
         currentAttack     = pick(ATTACK_SCENARIOS);
         lastAttackCycleId = cycleId;
         attackerIp        = pick(ATTACKER_IPS);
+        attackStartTime   = new Date();
       }
 
       const atk            = currentAttack;
@@ -160,10 +179,13 @@ function startSimulator(io) {
       if (isNewCycle && isDbReady()) {
         try {
           const alert = await new Alert({
-            type:     atk.alertType,
+            type:            atk.alertType,
             severity,
-            details:  `[${atk.label}] ${rate.toLocaleString()} pkt/s / ${bwLabel} from ${ip} — ${atk.probability}% certain`,
+            details:         `[${atk.label}] ${rate.toLocaleString()} pkt/s / ${bwLabel} from ${ip} — ${atk.probability}% certain`,
+            attackStartedAt: attackStartTime,
           }).save();
+
+          currentAlertId = alert._id;
 
           // ── Auto-blacklist high-severity attacks ────────────────────────────
           if (severity === 'High') {
@@ -261,8 +283,37 @@ function startSimulator(io) {
         severity,
       });
 
-    // ── Normal Phase (50 s) ──────────────────────────────────────────────────
+    // ── Normal Phase ────────────────────────────────────────────────────────
     } else {
+      // ── Attack just ended: calculate + persist finalDuration ─────────────
+      if (currentAttack && !attackEnded && currentAlertId && attackStartTime) {
+        attackEnded = true;
+        const endTime       = new Date();
+        const finalDuration = Math.round((endTime - attackStartTime) / 1000);
+
+        if (isDbReady()) {
+          try {
+            await Alert.findByIdAndUpdate(currentAlertId, {
+              duration:       finalDuration,
+              attackEndedAt:  endTime,
+            });
+          } catch (e) {
+            console.error('[simulator] Duration update error:', e.message);
+          }
+        }
+
+        // Notify frontend that attack ended — includes duration for Forensics
+        io.emit('attackEnded', {
+          alertId:  currentAlertId,
+          duration: finalDuration,
+        });
+
+        // Reset attack state for next cycle
+        currentAttack  = null;
+        currentAlertId = null;
+        attackStartTime = null;
+      }
+
       const profile        = getNormalProfile();
       const rate           = rand(profile.rateMin, profile.rateMax);
       const bandwidth      = rand(profile.bwMin,   profile.bwMax);
