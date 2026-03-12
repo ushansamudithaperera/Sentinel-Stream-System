@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, admin } = require('../middlewares/auth');
 const Alert      = require('../models/Alert');
 const TrafficLog = require('../models/TrafficLog');
+const Blacklist  = require('../models/Blacklist');
 const { getMode, applyFeedback, getModelStats } = require('../services/detectionEngine');
 
 const router = express.Router();
@@ -86,6 +87,26 @@ router.patch('/alerts/:id/action', protect, admin, async (req, res) => {
 // GET /api/system/model-stats — live AI sensitivity thresholds (admin only)
 router.get('/system/model-stats', protect, admin, (req, res) => {
   res.json(getModelStats());
+});
+
+// GET /api/admin/blacklist — all blacklisted IPs (admin only)
+router.get('/admin/blacklist', protect, admin, async (req, res) => {
+  try {
+    const entries = await Blacklist.find({}).sort({ timestamp: -1 }).lean();
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to fetch blacklist' });
+  }
+});
+
+// GET /api/blocked-ips — IPs blocked via admin action (admin only)
+router.get('/blocked-ips', protect, admin, async (req, res) => {
+  try {
+    const blocked = await Alert.find({ adminAction: 'blocked' }).sort({ timestamp: -1 }).lean();
+    res.json(blocked);
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to fetch blocked IPs' });
+  }
 });
 
 module.exports = router;

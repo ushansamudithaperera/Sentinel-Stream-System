@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
@@ -120,6 +120,9 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [actionConfirm, setActionConfirm] = useState({ open: false, alertId: null, action: null });
   const [actionLoading, setActionLoading] = useState(false);
+  const [blacklist, setBlacklist] = useState([]);
+  const [securityAlerts, setSecurityAlerts] = useState([]);
+  const seenAlertIds = useRef(new Set());
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -154,17 +157,25 @@ const Dashboard = () => {
     axios.get('http://localhost:5000/api/logs', { withCredentials: true })
       .then(res => {
         // /api/logs returns newest-first; map DB docs to the same shape socket events use
-        const seeded = res.data.slice(0, 50).map(doc => ({
-          alertId:     doc._id,
-          status:      'Malicious',
-          details:     doc.details,
-          timestamp:   doc.timestamp,
-          adminAction: doc.adminAction,
-          scenario:    doc.type?.toUpperCase() ?? 'DDOS',
-          ...parseAlertDetails(doc.details),
-        }));
+        const seeded = res.data.slice(0, 50).map(doc => {
+          if (doc._id) seenAlertIds.current.add(String(doc._id));
+          return {
+            alertId:     doc._id,
+            status:      'Malicious',
+            details:     doc.details,
+            timestamp:   doc.timestamp,
+            adminAction: doc.adminAction,
+            scenario:    doc.type?.toUpperCase() ?? 'DDOS',
+            ...parseAlertDetails(doc.details),
+          };
+        });
         setAlerts(seeded);
       })
+      .catch(() => {});
+
+    // Blacklist — admin view of auto-blacklisted IPs
+    axios.get('http://localhost:5000/api/admin/blacklist', { withCredentials: true })
+      .then(res => setBlacklist(res.data))
       .catch(() => {});
   }, []);
 
@@ -191,20 +202,27 @@ const Dashboard = () => {
     socket.on('detectionUpdate', (update) => {
       if (update.mode) setMode(update.mode);
       if (update.status !== 'Safe' && update.status !== 'Learning') {
-        setAlerts((prev) => {
-          // Deduplicate: skip if this alertId was already loaded from DB
-          if (update.alertId && prev.some(a => String(a.alertId) === String(update.alertId))) {
-            return prev;
-          }
-          setThreatCount(c => (c ?? 0) + 1);
-          return [update, ...prev].slice(0, 50);
-        });
+        const id = update.alertId ? String(update.alertId) : null;
+        // Deduplicate via ref — immune to StrictMode double-invocation
+        if (id && seenAlertIds.current.has(id)) return;
+        if (id) seenAlertIds.current.add(id);
+        setAlerts(prev => [update, ...prev].slice(0, 50));
+        setThreatCount(c => (c ?? 0) + 1);
       }
+    });
+
+    socket.on('securityAlert', (sa) => {
+      setSecurityAlerts(prev => [sa, ...prev].slice(0, 20));
+      // Also refresh the blacklist when a lockout occurs
+      axios.get('http://localhost:5000/api/admin/blacklist', { withCredentials: true })
+        .then(res => setBlacklist(res.data))
+        .catch(() => {});
     });
 
     return () => {
       socket.off('trafficUpdate');
       socket.off('detectionUpdate');
+      socket.off('securityAlert');
     };
   }, []);
 
@@ -368,6 +386,31 @@ const Dashboard = () => {
 
         {/* ── Live Attack Feed (admin) or restricted notice ── */}
         {user?.role === 'admin' ? (
+          <>
+          {/* ── Security Alert Banner ── */}
+          {securityAlerts.length > 0 && (
+            <div className="mb-6 bg-orange-950/40 border border-orange-700 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-orange-400 text-lg">🔐</span>
+                <h3 className="text-sm font-mono font-bold text-orange-300 uppercase tracking-widest">
+                  Brute-Force Lockout Alerts
+                </h3>
+                <span className="text-xs font-mono font-bold bg-orange-600/80 text-white px-2 py-0.5 rounded">
+                  {securityAlerts.length}
+                </span>
+              </div>
+              <ul className="space-y-1 max-h-32 overflow-y-auto">
+                {securityAlerts.map((sa, i) => (
+                  <li key={sa.alertId || i} className="text-xs font-mono text-orange-200 flex items-center gap-2">
+                    <span className="text-orange-500">⛔</span>
+                    <span>IP <span className="text-white font-bold">{sa.ip}</span> locked out after <span className="text-white font-bold">{sa.attempts}</span> failed attempts</span>
+                    <span className="text-orange-600 ml-auto">{new Date(sa.timestamp).toLocaleTimeString()}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="bg-gray-900/70 border border-gray-800 rounded-lg shadow-lg overflow-hidden">
             {/* panel header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
@@ -480,6 +523,64 @@ const Dashboard = () => {
               )}
             </div>
           </div>
+
+          {/* ── Blacklist Table (admin) ── */}
+          {blacklist.length > 0 && (
+            <div className="mt-6 bg-gray-900/70 border border-gray-800 rounded-lg shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/50">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <h2 className="text-sm font-mono font-semibold tracking-widest uppercase text-gray-300">
+                    Blacklisted IPs
+                  </h2>
+                  <span className="text-xs font-mono font-bold bg-red-600/80 text-white px-2 py-0.5 rounded">
+                    {blacklist.length}
+                  </span>
+                </div>
+              </div>
+              <div className="p-4 overflow-x-auto">
+                <table className="w-full text-xs font-mono">
+                  <thead>
+                    <tr className="text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                      <th className="text-left py-2 px-3">IP Address</th>
+                      <th className="text-left py-2 px-3">Attack Type</th>
+                      <th className="text-left py-2 px-3">Severity</th>
+                      <th className="text-left py-2 px-3">Reason</th>
+                      <th className="text-left py-2 px-3">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blacklist.slice(0, 50).map((entry, i) => (
+                      <tr key={entry._id || i} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                        <td className="py-2 px-3 text-red-400 font-bold">{entry.ip}</td>
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            entry.attackType === 'DDoS'       ? 'bg-red-950/60 text-red-400' :
+                            entry.attackType === 'BruteForce' ? 'bg-orange-950/60 text-orange-400' :
+                                                                'bg-purple-950/60 text-purple-400'
+                          }`}>
+                            {entry.attackType}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className={`font-bold ${
+                            entry.severity === 'High'   ? 'text-red-400' :
+                            entry.severity === 'Medium' ? 'text-yellow-400' :
+                                                          'text-green-400'
+                          }`}>
+                            {entry.severity}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-gray-400 max-w-xs truncate">{entry.reason}</td>
+                        <td className="py-2 px-3 text-gray-500">{new Date(entry.timestamp).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          </>
         ) : (
           user && (
             <div className="bg-gray-900/70 border border-yellow-900/40 rounded-lg shadow-lg overflow-hidden">
