@@ -198,6 +198,7 @@ const Dashboard = () => {
   const [blacklist, setBlacklist] = useState([]);
   const [securityAlerts, setSecurityAlerts] = useState([]);
   const [showSecOpsModal, setShowSecOpsModal] = useState(false);
+  const [chartMode, setChartMode] = useState('combined'); // 'combined' | 'split'
   const seenAlertIds = useRef(new Set());
   const navigate = useNavigate();
 
@@ -426,12 +427,45 @@ const Dashboard = () => {
 
         {/* ── Learning banner ── */}
         {mode === 'learning' && (
-          <div className="mb-6 flex items-start gap-3 bg-blue-950/40 border border-blue-700 rounded-lg p-4">
-            <span className="text-blue-400 text-lg mt-0.5">🧠</span>
-            <div className="text-sm">
-              <p className="text-blue-200 font-semibold mb-0.5">AI Baseline Learning in progress</p>
-              <p className="text-blue-400/80">Recording normal traffic patterns for 5 minutes. Anomaly detection and alerts activate automatically once baseline is established.</p>
+          <div className="mb-6 relative overflow-hidden rounded-lg border border-blue-700/60 bg-blue-950/30 shadow-lg shadow-blue-950/20">
+            {/* Animated sweep beam */}
+            <div className="learning-sweep" />
+
+            {/* Top progress bar */}
+            <div className="learning-progress-bar" />
+
+            <div className="relative z-10 flex items-start gap-4 p-4">
+              {/* Orbiting brain icon */}
+              <div className="relative w-10 h-10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-2xl">🧠</span>
+                <span className="orbit-dot" />
+                <span className="orbit-dot" />
+                <span className="orbit-dot" />
+              </div>
+
+              <div className="text-sm flex-1">
+                <p className="text-blue-200 font-bold font-mono tracking-wide mb-1 blink-cursor">
+                  AI Baseline Learning in progress
+                </p>
+                <p className="text-blue-400/70 text-xs font-mono leading-relaxed">
+                  Recording normal traffic patterns. Anomaly detection activates automatically once baseline is established.
+                </p>
+
+                {/* Animated metric indicators */}
+                <div className="flex items-center gap-4 mt-3">
+                  {['Packets', 'Bandwidth', 'Connections'].map((m, i) => (
+                    <div key={m} className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse`}
+                        style={{ animationDelay: `${i * 0.4}s` }} />
+                      <span className="text-[10px] font-mono text-blue-500 uppercase tracking-widest">{m}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
+
+            {/* Bottom progress bar */}
+            <div className="learning-progress-bar" style={{ animationDelay: '2s' }} />
           </div>
         )}
 
@@ -470,22 +504,64 @@ const Dashboard = () => {
                 </span>
               )}
             </div>
-            <span className="text-xs font-mono text-gray-600">last 60 ticks</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setChartMode(m => m === 'combined' ? 'split' : 'combined')}
+                className="text-xs font-mono font-bold px-3 py-1 rounded border border-cyan-800 bg-cyan-950/40 text-cyan-400 hover:bg-cyan-800 hover:text-white transition-all uppercase tracking-wider"
+              >
+                {chartMode === 'combined' ? '⇅ Split View' : '⇄ Combined View'}
+              </button>
+              <span className="text-xs font-mono text-gray-600">last 60 ticks</span>
+            </div>
           </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={360}>
-              <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
-                <YAxis yAxisId="left" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '8px' }} />
-                <Line yAxisId="left"  type="monotone" dataKey="rate"           name="pkt/s"    stroke="#22d3ee" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                <Line yAxisId="right" type="monotone" dataKey="connectionRate" name="conn/sec" stroke="#f97316" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+
+          {chartMode === 'combined' ? (
+            /* ── Combined: both lines in one chart ── */
+            <div className="p-4">
+              <ResponsiveContainer width="100%" height={360}>
+                <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                  <YAxis yAxisId="left" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '8px' }} />
+                  <Line yAxisId="left"  type="monotone" dataKey="rate"           name="pkt/s"    stroke="#22d3ee" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="connectionRate" name="conn/sec" stroke="#f97316" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            /* ── Split: pkt/s on top, conn/sec on bottom ── */
+            <div className="p-4 space-y-1">
+              {/* pkt/s */}
+              <div>
+                <p className="text-[10px] font-mono text-cyan-500 uppercase tracking-widest mb-1 pl-1">▸ Packet Rate (pkt/s)</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                    <YAxis stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="rate" name="pkt/s" stroke="#22d3ee" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              {/* conn/sec */}
+              <div>
+                <p className="text-[10px] font-mono text-orange-500 uppercase tracking-widest mb-1 pl-1">▸ Connection Rate (conn/sec)</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="name" stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                    <YAxis stroke="#374151" tick={{ fontSize: 10, fill: '#6b7280', fontFamily: 'monospace' }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="connectionRate" name="conn/sec" stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Live Attack Feed (admin) or restricted notice ── */}
