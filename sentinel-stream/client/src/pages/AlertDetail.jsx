@@ -157,12 +157,20 @@ const AlertDetail = () => {
               {/* Footer */}
               <div className="px-5 py-3 border-t border-gray-800 bg-gray-900/40 flex justify-between items-center">
                 <span className="font-mono text-xs text-gray-600">sentinel-stream // forensic module</span>
-                <Link
-                  to="/forensics"
-                  className="font-mono text-xs text-cyan-600 hover:text-cyan-400 transition-colors"
-                >
-                  ← back to incident log
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    to="/dashboard"
+                    className="font-mono text-xs text-cyan-600 hover:text-cyan-400 transition-colors"
+                  >
+                    → Dashboard
+                  </Link>
+                  <Link
+                    to="/forensics"
+                    className="font-mono text-xs text-cyan-600 hover:text-cyan-400 transition-colors"
+                  >
+                    → Forensics
+                  </Link>
+                </div>
               </div>
             </div>
           </>

@@ -57,7 +57,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // ── Security Ops Modal ────────────────────────────────────────────────────────
-function SecurityOpsModal({ open, onClose, blacklist, onUnblock }) {
+function SecurityOpsModal({ open, onClose, blacklist, onUnblock, onClearAll }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
@@ -76,12 +76,22 @@ function SecurityOpsModal({ open, onClose, blacklist, onUnblock }) {
               {blacklist.length}
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-cyan-400 text-lg font-mono transition-colors"
-          >
-            \u2715
-          </button>
+          <div className="flex items-center gap-2">
+            {blacklist.length > 0 && (
+              <button
+                onClick={onClearAll}
+                className="px-3 py-1 rounded border border-red-700 bg-red-950/50 text-red-400 hover:bg-red-600 hover:text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+              >
+                Clear All
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-3 py-1 rounded border border-gray-700 bg-gray-800/50 text-gray-400 hover:border-red-600 hover:bg-red-950/50 hover:text-red-400 text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -185,6 +195,46 @@ function ConfirmDialog({ confirm, onConfirm, onCancel, loading }) {
   );
 }
 
+// ── Generic Destructive Action Confirmation ───────────────────────────────────
+const DESTRUCTIVE_META = {
+  clearLogs:      { icon: '🗑️', title: 'Clear All Logs',     desc: 'This will permanently delete all alert logs and reset the threat counter to zero.', btn: 'Yes, Clear Logs' },
+  clearBlacklist: { icon: '🗑️', title: 'Clear All Blocked IPs', desc: 'This will remove every IP from the blacklist. The simulator may re-blacklist them in future cycles.', btn: 'Yes, Clear All' },
+  unblockIp:      { icon: '🔓', title: 'Unblock IP',          desc: 'This will remove this IP from the blacklist, making it eligible for selection by the simulator again.', btn: 'Yes, Unblock' },
+};
+
+function DestructiveConfirmDialog({ confirm, onConfirm, onCancel }) {
+  if (!confirm.open) return null;
+  const meta = DESTRUCTIVE_META[confirm.type] || DESTRUCTIVE_META.clearLogs;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-sm mx-4 rounded-xl border border-red-700 shadow-2xl shadow-red-950/50 bg-gray-900">
+        <div className="px-5 py-4 border-b border-red-800 bg-red-950/30 flex items-center gap-3">
+          <span className="text-xl">{meta.icon}</span>
+          <h3 className="font-mono font-bold text-sm uppercase tracking-widest text-red-300">{meta.title}</h3>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-sm text-gray-300 mb-2">{meta.desc}</p>
+          {confirm.detail && <p className="text-xs font-mono text-cyan-400 border-t border-gray-800 pt-3">{confirm.detail}</p>}
+        </div>
+        <div className="flex gap-3 px-5 pb-5">
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-lg text-sm font-bold font-mono tracking-wider bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 transition-all"
+          >
+            {meta.btn}
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-lg border border-gray-700 text-sm font-mono text-gray-400 hover:border-gray-500 hover:text-white transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Dashboard = () => {
   const [data, setData] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -201,6 +251,7 @@ const Dashboard = () => {
   const [chartMode, setChartMode] = useState('combined'); // 'combined' | 'split'
   const [attackElapsed, setAttackElapsed] = useState(0);   // live stopwatch seconds
   const [lastDuration, setLastDuration]   = useState(null); // most recent attack duration
+  const [destructiveConfirm, setDestructiveConfirm] = useState({ open: false, type: null, detail: null, payload: null });
   const seenAlertIds = useRef(new Set());
   const stopwatchRef = useRef(null);
   const navigate = useNavigate();
@@ -328,6 +379,23 @@ const Dashboard = () => {
     }
   };
 
+  const clearBlacklist = async () => {
+    try {
+      await axios.delete('http://localhost:5000/api/admin/blacklist', { withCredentials: true });
+      setBlacklist([]);
+    } catch (err) {
+      console.error('Clear blacklist failed:', err);
+    }
+  };
+
+  const executeDestructive = async () => {
+    const { type, payload } = destructiveConfirm;
+    setDestructiveConfirm({ open: false, type: null, detail: null, payload: null });
+    if (type === 'clearLogs')      await clearLogs();
+    if (type === 'clearBlacklist') await clearBlacklist();
+    if (type === 'unblockIp')      await unblockIp(payload);
+  };
+
   const openConfirm = (alertId, action) => {
     setActionConfirm({ open: true, alertId, action });
   };
@@ -398,7 +466,13 @@ const Dashboard = () => {
         open={showSecOpsModal}
         onClose={() => setShowSecOpsModal(false)}
         blacklist={blacklist}
-        onUnblock={unblockIp}
+        onUnblock={(ip) => setDestructiveConfirm({ open: true, type: 'unblockIp', detail: `IP: ${ip}`, payload: ip })}
+        onClearAll={() => setDestructiveConfirm({ open: true, type: 'clearBlacklist', detail: `${blacklist.length} entries will be removed.`, payload: null })}
+      />
+      <DestructiveConfirmDialog
+        confirm={destructiveConfirm}
+        onConfirm={executeDestructive}
+        onCancel={() => setDestructiveConfirm({ open: false, type: null, detail: null, payload: null })}
       />
       {/* Cyber grid background */}
       <div className="cyber-grid pointer-events-none" aria-hidden />
@@ -650,7 +724,7 @@ const Dashboard = () => {
               </div>
               {alerts.length > 0 && (
                 <button
-                  onClick={clearLogs}
+                  onClick={() => setDestructiveConfirm({ open: true, type: 'clearLogs', detail: `${alerts.length} alert(s) will be permanently deleted.`, payload: null })}
                   className="text-xs font-mono tracking-wider uppercase px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-red-700 hover:text-red-400 transition-all"
                 >
                   Clear Logs

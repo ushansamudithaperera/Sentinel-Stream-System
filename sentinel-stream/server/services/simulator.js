@@ -23,10 +23,25 @@ const LEGIT_IPS = [
 ];
 
 // ─── Brute-force injection constants ──────────────────────────────────────────
-const BRUTE_IP         = '192.168.1.100';
+const BRUTE_FORCE_IPS = [
+  '192.168.1.100', '192.168.1.101', '192.168.1.102', '192.168.1.103', '192.168.1.104',
+  '10.10.20.50',   '10.10.20.51',   '10.10.20.52',   '10.10.20.53',   '10.10.20.54',
+  '172.16.5.10',   '172.16.5.11',   '172.16.5.12',   '172.16.5.13',   '172.16.5.14',
+  '192.0.2.200',   '192.0.2.201',   '192.0.2.202',   '192.0.2.203',   '192.0.2.204',
+  '198.18.0.30',   '198.18.0.31',   '198.18.0.32',   '198.18.0.33',   '198.18.0.34',
+];
 const BRUTE_TOTAL      = 13;     // failed attempts per attack window
 const BRUTE_LOCKOUT_AT = 10;     // lockout triggers at this attempt number
 const BRUTE_USERNAMES  = ['admin', 'root', 'deploy', 'sysadmin', 'operator'];
+const LOCKOUT_REASONS  = [
+  'Credential stuffing detected',
+  'Sequential login failure',
+  'Pattern-based brute force',
+  'Automated password spray attack',
+  'Rapid auth failure from single source',
+  'Dictionary attack detected',
+  'Repeated invalid credential attempts',
+];
 
 // ─── Normal Profiles (time-of-day) ───────────────────────────────────────────
 //   QUIET    : Off-peak hours  — 20–80   pkt/s,  <1 Mbps
@@ -125,6 +140,7 @@ function startSimulator(io) {
   let bfAttemptCount = 0;
   let bfLockoutFired = false;
   let lastBfCycleId  = -1;
+  let bfCurrentIp    = null;    // randomly selected non-blacklisted IP per cycle
 
   setInterval(async () => {
     const now        = Date.now();
@@ -187,16 +203,19 @@ function startSimulator(io) {
 
           currentAlertId = alert._id;
 
-          // ── Auto-blacklist high-severity attacks ────────────────────────────
+          // ── Auto-blacklist high-severity attacks (with duplicate check) ────
           if (severity === 'High') {
             try {
-              await new Blacklist({
-                ip,
-                reason:     `Auto-blacklisted: ${atk.label} attack — ${severity} severity, ${rate.toLocaleString()} pkt/s`,
-                attackType: atk.alertType,
-                severity,
-                alertId:    alert._id,
-              }).save();
+              const alreadyBlocked = await Blacklist.findOne({ ip });
+              if (!alreadyBlocked) {
+                await new Blacklist({
+                  ip,
+                  reason:     `Auto-blacklisted: ${atk.label} attack — ${severity} severity, ${rate.toLocaleString()} pkt/s`,
+                  attackType: atk.alertType,
+                  severity,
+                  alertId:    alert._id,
+                }).save();
+              }
             } catch (blErr) {
               console.error('[simulator] Blacklist save error:', blErr.message);
             }
@@ -219,55 +238,72 @@ function startSimulator(io) {
 
       // ── Brute-force injection during BRUTEFORCE phase ──────────────────────
       if (atk.label === 'BRUTEFORCE' && isDbReady()) {
-        // Reset brute-force state on cycle change
+        // Reset brute-force state on cycle change + pick a non-blacklisted IP
         if (cycleId !== lastBfCycleId) {
           bfAttemptCount = 0;
           bfLockoutFired = false;
           lastBfCycleId  = cycleId;
+
+          // Pick a random IP that is NOT already blacklisted
+          try {
+            const blacklisted = await Blacklist.distinct('ip');
+            const available   = BRUTE_FORCE_IPS.filter(ip => !blacklisted.includes(ip));
+            bfCurrentIp       = available.length > 0 ? pick(available) : null;
+          } catch (e) {
+            bfCurrentIp = pick(BRUTE_FORCE_IPS);
+          }
         }
 
-        // Inject 2-3 failed JWT login attempts per tick (up to BRUTE_TOTAL)
-        const batch = Math.min(2 + Math.floor(Math.random() * 2), BRUTE_TOTAL - bfAttemptCount);
-        for (let i = 0; i < batch; i++) {
-          bfAttemptCount++;
-          try {
-            await new AuthAttempt({
-              ip:        BRUTE_IP,
-              email:     `${pick(BRUTE_USERNAMES)}@target.local`,
-              success:   false,
-              timestamp: new Date(),
-            }).save();
-          } catch (e) {
-            console.error('[simulator] AuthAttempt save error:', e.message);
-          }
-
-          // Lockout trigger
-          if (bfAttemptCount >= BRUTE_LOCKOUT_AT && !bfLockoutFired) {
-            bfLockoutFired = true;
+        // Skip injection entirely if all brute-force IPs are already blacklisted
+        if (bfCurrentIp) {
+          // Inject 2-3 failed JWT login attempts per tick (up to BRUTE_TOTAL)
+          const batch = Math.min(2 + Math.floor(Math.random() * 2), BRUTE_TOTAL - bfAttemptCount);
+          for (let i = 0; i < batch; i++) {
+            bfAttemptCount++;
             try {
-              const lockoutAlert = await new Alert({
-                type:     'BruteForce',
-                severity: 'High',
-                details:  `[LOCKOUT] ${bfAttemptCount} failed logins from ${BRUTE_IP} — account locked`,
-              }).save();
-
-              await new Blacklist({
-                ip:        BRUTE_IP,
-                reason:    `Brute-force lockout: ${bfAttemptCount} failed login attempts`,
-                attackType:'BruteForce',
-                severity:  'High',
-                alertId:   lockoutAlert._id,
-              }).save();
-
-              io.emit('securityAlert', {
-                type:      'BRUTE_FORCE_LOCKOUT',
-                ip:        BRUTE_IP,
-                attempts:  bfAttemptCount,
-                alertId:   lockoutAlert._id,
+              await new AuthAttempt({
+                ip:        bfCurrentIp,
+                email:     `${pick(BRUTE_USERNAMES)}@target.local`,
+                success:   false,
                 timestamp: new Date(),
-              });
+              }).save();
             } catch (e) {
-              console.error('[simulator] Lockout save error:', e.message);
+              console.error('[simulator] AuthAttempt save error:', e.message);
+            }
+
+            // Lockout trigger
+            if (bfAttemptCount >= BRUTE_LOCKOUT_AT && !bfLockoutFired) {
+              bfLockoutFired = true;
+              try {
+                // Duplicate check — skip if IP is already blacklisted
+                const alreadyBlocked = await Blacklist.findOne({ ip: bfCurrentIp });
+                if (alreadyBlocked) break;
+
+                const reason       = pick(LOCKOUT_REASONS);
+                const lockoutAlert = await new Alert({
+                  type:     'BruteForce',
+                  severity: 'High',
+                  details:  `[LOCKOUT] ${reason} — ${bfAttemptCount} failed logins from ${bfCurrentIp}`,
+                }).save();
+
+                await new Blacklist({
+                  ip:        bfCurrentIp,
+                  reason:    `${reason}: ${bfAttemptCount} failed login attempts`,
+                  attackType:'BruteForce',
+                  severity:  'High',
+                  alertId:   lockoutAlert._id,
+                }).save();
+
+                io.emit('securityAlert', {
+                  type:      'BRUTE_FORCE_LOCKOUT',
+                  ip:        bfCurrentIp,
+                  attempts:  bfAttemptCount,
+                  alertId:   lockoutAlert._id,
+                  timestamp: new Date(),
+                });
+              } catch (e) {
+                console.error('[simulator] Lockout save error:', e.message);
+              }
             }
           }
         }

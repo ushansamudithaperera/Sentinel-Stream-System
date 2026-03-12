@@ -234,7 +234,7 @@ const Login = () => {
                       </svg>
                       Authenticating...
                     </span>
-                  ) : 'Authenticate &#8594;'}
+                  ) : 'Authenticate'}
                 </button>
               </form>
             )}
@@ -295,7 +295,7 @@ const Login = () => {
                       </svg>
                       Creating account...
                     </span>
-                  ) : 'Create Account &#8594;'}
+                  ) : 'Create Account'}
                 </button>
               </form>
             )}

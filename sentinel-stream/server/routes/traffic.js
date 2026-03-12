@@ -99,6 +99,16 @@ router.get('/admin/blacklist', protect, admin, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/blacklist — clear ALL blacklisted IPs (admin only)
+router.delete('/admin/blacklist', protect, admin, async (req, res) => {
+  try {
+    const result = await Blacklist.deleteMany({});
+    res.json({ msg: 'Blacklist cleared', deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to clear blacklist' });
+  }
+});
+
 // DELETE /api/admin/blacklist/:ip — unblock / remove an IP from the blacklist (admin only)
 router.delete('/admin/blacklist/:ip', protect, admin, async (req, res) => {
   try {
