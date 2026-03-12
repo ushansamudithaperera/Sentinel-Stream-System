@@ -328,6 +328,9 @@ const Dashboard = () => {
       setAlerts(prev => prev.map(a =>
         a.alertId === alertId ? { ...a, adminAction: res.data.adminAction } : a
       ));
+      if (action === 'ignore') {
+        setThreatCount(c => Math.max((c ?? 1) - 1, 0));
+      }
       setActionConfirm({ open: false, alertId: null, action: null });
     } catch (err) {
       console.error('Action failed:', err);
@@ -392,9 +395,9 @@ const Dashboard = () => {
                   {user.role === 'admin' && (
                     <button
                       onClick={() => setShowSecOpsModal(true)}
-                      className="text-xs font-mono font-bold px-3 py-1 rounded border border-cyan-700 bg-cyan-950/50 text-cyan-400 hover:bg-cyan-700 hover:text-white transition-all shadow-sm shadow-cyan-900/30 uppercase tracking-wider"
+                      className="text-xs font-mono font-bold px-3 py-1 rounded border border-red-700 bg-red-950/50 text-red-400 hover:bg-red-700 hover:text-white transition-all shadow-sm shadow-red-900/30 uppercase tracking-wider"
                     >
-                      \u26d4 Security Ops
+                      IP Control
                     </button>
                   )}
                 </>

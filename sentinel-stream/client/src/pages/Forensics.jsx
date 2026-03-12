@@ -64,9 +64,11 @@ const Forensics = () => {
   const types = ['All', ...Array.from(new Set(logs.map(l => l.type)))];
   const filtered = filter === 'All' ? logs : logs.filter(l => l.type === filter);
 
-  const highCount   = logs.filter(l => l.severity === 'High').length;
-  const medCount    = logs.filter(l => l.severity === 'Medium').length;
-  const lowCount    = logs.filter(l => l.severity === 'Low').length;
+  // Exclude false positives from threat stats and pie charts
+  const activeLogs = logs.filter(l => l.adminAction !== 'false_positive');
+  const highCount   = activeLogs.filter(l => l.severity === 'High').length;
+  const medCount    = activeLogs.filter(l => l.severity === 'Medium').length;
+  const lowCount    = activeLogs.filter(l => l.severity === 'Low').length;
   const totalForPie = highCount + medCount + lowCount;
 
   const severityPieData = [
@@ -76,7 +78,7 @@ const Forensics = () => {
   ].filter(d => d.value > 0);
 
   const typeCounts = {};
-  logs.forEach(l => { if (l.type) typeCounts[l.type] = (typeCounts[l.type] || 0) + 1; });
+  activeLogs.forEach(l => { if (l.type) typeCounts[l.type] = (typeCounts[l.type] || 0) + 1; });
   const totalType = Object.values(typeCounts).reduce((a, b) => a + b, 0);
   const typePieData = Object.entries(typeCounts).map(([name, value]) => ({ name, value, total: totalType }));
 
@@ -99,7 +101,7 @@ const Forensics = () => {
         {!loading && !error && logs.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
-              { label: 'Total Events', value: logs.length, color: 'text-cyan-400', border: 'border-cyan-900' },
+              { label: 'Total Events', value: activeLogs.length, color: 'text-cyan-400', border: 'border-cyan-900' },
               { label: 'High Severity', value: highCount,  color: 'text-red-400',   border: 'border-red-900' },
               { label: 'Medium',        value: medCount,   color: 'text-yellow-400', border: 'border-yellow-900' },
               { label: 'Low',           value: lowCount,   color: 'text-green-400',  border: 'border-green-900' },

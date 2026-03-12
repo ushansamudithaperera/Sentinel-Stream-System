@@ -10,7 +10,7 @@ const router = express.Router();
 // GET /api/threats/count — total unique threat records in the DB (auth required)
 router.get('/threats/count', protect, async (req, res) => {
   try {
-    const count = await Alert.countDocuments({});
+    const count = await Alert.countDocuments({ adminAction: { $ne: 'false_positive' } });
     res.json({ count });
   } catch (err) {
     res.status(500).json({ msg: 'Failed to fetch threat count' });
