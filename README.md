@@ -141,7 +141,7 @@ Start backend:
 
 ```bash
 cd sentinel-stream/server
-npm run dev
+npm start
 ```
 
 Start frontend:
