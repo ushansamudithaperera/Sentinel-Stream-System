@@ -44,7 +44,7 @@ Mark alerts as **"Blocked"** (confirmed threat) or **"Ignored"** (false positive
 | 🔐 Security | JWT (Access + Refresh), bcryptjs, Helmet, Rate-limiting |
 | 📊 Database | MongoDB (Atlas in Cloud, Local in Docker) |
 | 🧠 Detection | Rolling statistics, EWMA, Z-score, Adaptive thresholds |
-| 🐳 Deployment | Docker, Docker Compose, Render |
+| 🐳 Deployment | Docker, Docker Compose |
 
 ---
 
