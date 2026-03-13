@@ -1,173 +1,218 @@
-# Sentinel-Stream IDS (MERN + Cybersecurity + AI)
+# Sentinel Stream System IDS
 
-This repository is an individual-project blueprint for building a **real-time Intrusion Detection System (IDS)** using the MERN stack.
+Real-time Intrusion Detection System built with a MERN-style stack (React + Node.js + MongoDB + Socket.IO), focused on cyber defense workflows.
 
-The goal is to create something that is:
-- practical for one developer,
-- strong enough for GitHub/LinkedIn portfolio use,
-- and relevant to industry roles in **Cybersecurity, SRE, and DevOps**.
+The platform simulates live network traffic, detects suspicious behavior, persists incidents, and provides analyst-facing investigation tools.
 
----
+## Highlights
 
-## 1) What this project actually is (in simple words)
+- Live traffic stream with Socket.IO updates every 2 seconds
+- Detection engine with:
+  - learning warm-up phase
+  - DDoS spike detection
+  - brute-force login pattern detection
+  - statistical anomaly detection (z-score)
+  - EWMA deviation checks
+- Auto-blacklisting for high-severity events
+- Admin feedback loop to tune model sensitivity dynamically
+- JWT auth with HTTP-only cookies and role-based access control
+- Forensics dashboard with severity/type distributions and historical log review
 
-Think of this system as a **digital security guard**:
+## Tech Stack
 
-1. It continuously receives traffic-like data (simulated packets/signals).
-2. It analyzes that stream in real time.
-3. It detects unusual patterns (possible attacks).
-4. It alerts the dashboard and stores attack logs for later investigation.
+Frontend
+- React 19
+- Vite
+- Tailwind CSS
+- Recharts
+- Axios
+- Socket.IO Client
 
-So you are not just making a website — you are making a **security monitoring system** with a live brain behind it.
+Backend
+- Node.js + Express
+- Socket.IO
+- MongoDB + Mongoose
+- JWT + bcryptjs
+- Helmet + express-rate-limit + express-validator
 
----
+## Repository Structure
 
-## 2) High-level architecture
+```text
+sentinel-stream/
+  client/    # React dashboard and analyst UI
+  server/    # API, simulator, detection engine, MongoDB models
+```
 
-### Frontend (React + Tailwind + Charts)
-- Shows real-time traffic charts.
-- Shows alert feed (`Safe`, `Suspicious`, `Malicious`).
-- Shows forensics/history page from database.
+## Core Features
 
-### Backend (Node.js + Express + Socket.io)
-- Accepts/generated traffic events.
-- Runs detection logic (threshold + statistical + AI-assisted).
-- Emits updates to frontend over websockets.
-- Handles authentication/authorization.
+1. Real-time Security Monitoring
+- Traffic telemetry is generated continuously by a simulator
+- Live charting of packet rate, bandwidth, and connection rate
+- Live threat feed with scenario-aware labeling
 
-### Database (MongoDB)
-- Stores users, roles, alerts, and historical logs.
-- Keeps evidence for post-incident analysis.
+2. Detection and Classification
+- Learning mode to establish baseline before alerts
+- DDoS detection using adaptive multiplier over rolling average
+- Brute-force detection via SSH/auth pattern thresholds
+- Statistical anomaly detection using z-score
+- Zero-day style deviation check using EWMA drift
 
-### Detection Engine (DSP + AI)
-- Rolling average / moving statistics.
-- Optional worker-thread FFT or frequency analysis.
-- Optional anomaly model (e.g., simple autoencoder-style behavior, prediction error thresholds).
+3. Incident Response Workflow
+- Threat logs persisted to MongoDB
+- Admin actions per alert: block or ignore
+- False positives excluded from key threat counters
+- Blacklist operations: view, remove one IP, clear all
 
----
+4. Access Control and Security
+- Register/login flow
+- Role model: viewer and admin
+- Protected endpoints with token validation
+- Auth route hardening with rate limiting and brute-force middleware
 
-## 3) End-to-end workflow (A to Z)
+## API Overview
 
-## Phase A — Foundation
-1. Create `client/` and `server/` folders.
-2. Configure backend Express server.
-3. Connect MongoDB Atlas free tier.
-4. Create schemas: `User`, `TrafficLog`, `Alert`, `AuthAttempt`.
+Auth
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/refresh
+- POST /api/auth/logout
+- GET /api/auth/me
 
-## Phase B — Secure core
-5. Add authentication with JWT access + refresh flow.
-6. Store refresh token securely (`httpOnly`, `secure`, `sameSite` cookie strategy).
-7. Add role-based access control (`admin`, `viewer`).
-8. Add hardening: `helmet`, rate limiter, request validation/sanitization.
+Traffic and Threats
+- GET /api/traffic/recent
+- GET /api/threats/count
+- GET /api/threats/severity-distribution
+- GET /api/alerts/:id
+- PATCH /api/alerts/:id/action
 
-## Phase C — Real-time traffic pipeline
-9. Build a simulator that emits realistic traffic fields:
-   - timestamp
-   - source IP
-   - protocol
-   - packet rate / payload size
-10. Stream events with Socket.io from backend to frontend.
-11. Render real-time line chart and anomaly indicators.
+Admin and Forensics
+- GET /api/logs
+- DELETE /api/logs
+- GET /api/admin/blacklist
+- DELETE /api/admin/blacklist
+- DELETE /api/admin/blacklist/:ip
+- GET /api/system/model-stats
 
-## Phase D — Detection logic
-12. Rule-based checks:
-   - sudden traffic volume spike (possible DDoS)
-   - repeated login failures by IP (possible brute-force)
-13. Statistical checks:
-   - moving average + standard deviation
-   - z-score thresholding
-14. AI-assisted checks (optional but portfolio-strong):
-   - train on normal baseline window
-   - compare predicted vs actual
-   - mark high error as anomaly
-15. Save each threat/alert to MongoDB.
+## Getting Started
 
-## Phase E — Incident response UX
-16. Live alert panel with severity colors.
-17. Threat timeline and searchable logs.
-18. Optional "investigation" detail page per alert.
+### 1. Prerequisites
 
-## Phase F — DevOps polish
-19. Containerize with Docker (`Dockerfile`, optional `docker-compose`).
-20. Add CI via GitHub Actions:
-   - install dependencies
-   - run tests/lint
-   - run `npm audit` check
-21. Deploy:
-   - frontend on Amplify/Render
-   - backend on EC2/Render/Railway
-   - database on MongoDB Atlas
+- Node.js 20+ recommended
+- npm 10+
+- MongoDB Atlas or local MongoDB instance
 
-## Phase G — Portfolio packaging
-22. Add architecture diagram + GIF/video in README.
-23. Add demo credentials (non-sensitive).
-24. Write a LinkedIn post focused on problems solved, not just tech list.
+### 2. Install Dependencies
 
----
+```bash
+# from repository root
+cd sentinel-stream/server
+npm install
 
-## 4) Real-world scenario to understand system behavior
+cd ../client
+npm install
+```
 
-### Scenario: “Midnight suspicious traffic surge”
-- **Normal state (2:00 AM):** packet rate is low and stable.
-- **Attack starts:** burst from many IPs with repeated auth attempts.
-- **Engine reaction:**
-  - rule engine sees sudden spike + repeated failures,
-  - statistical model sees values far beyond baseline,
-  - AI score confirms anomaly probability.
-- **Dashboard reaction:** red alert appears immediately with threat type.
-- **Forensics reaction:** event is persisted with timestamp, source metadata, and severity.
+### 3. Configure Environment Variables
 
-Result: operator can respond quickly and has records for next-day analysis.
+Create this file:
 
----
+```text
+sentinel-stream/server/.env
+```
 
-## 5) Is this possible for one person?
+Suggested variables:
 
-Yes — if you build it in vertical slices.
+```env
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+CLIENT_URL=http://localhost:5173
+JWT_ACCESS_SECRET=replace_with_strong_secret
+JWT_REFRESH_SECRET=replace_with_strong_secret
+NODE_ENV=development
+```
 
-### Recommended effort plan
-- Week 1: secure backend + DB + simulator
-- Week 2: real-time dashboard + socket streaming
-- Week 3: detection engine (rules + stats + optional AI)
-- Week 4: docker, CI/CD, deployment, documentation polish
+Important
+- Keep real secrets only in server/.env
+- Commit only templates like .env.example, never real credentials
 
-This is realistic as an individual project when scoped properly.
+### 4. Run the App
 
----
+Start backend:
 
-## 6) Can this be done using free resources?
+```bash
+cd sentinel-stream/server
+npm run dev
+```
 
-Yes. Common free options:
-- MongoDB Atlas free tier
-- GitHub + GitHub Actions free minutes
-- Render/Railway free tiers (or AWS free credits with budget alarms)
-- Docker Desktop (local)
-- Open-source charting and JS ML libraries
+Start frontend:
 
-> Important: If using AWS, always configure billing alerts/budgets first.
+```bash
+cd sentinel-stream/client
+npm run dev
+```
 
----
+Default URLs
+- Frontend: http://localhost:5173
+- Backend: http://localhost:5000
 
-## 7) Why this attracts industry attention
+## User Roles
 
-This project demonstrates:
-- full-stack engineering (MERN),
-- real-time systems (Socket.io),
-- security thinking (IDS logic, auth hardening, RBAC),
-- data/AI reasoning (anomaly detection),
-- deployment maturity (Docker + CI/CD).
+Viewer
+- Can access dashboard and non-admin protected data
 
-That combination is much stronger than a generic CRUD app.
+Admin
+- Can access forensic logs
+- Can clear logs
+- Can manage blacklist
+- Can mark threat outcomes for model feedback
 
----
+Note: Registration currently creates viewer accounts by default.
 
-## 8) Suggested MVP first milestone
+## Detection Engine Notes
 
-Build this before anything advanced:
-1. simulator emits traffic every second,
-2. backend broadcasts it via Socket.io,
-3. frontend shows live line chart,
-4. threshold alert appears when value is too high,
-5. alert is stored in MongoDB.
+- Starts in learning mode for a short warm-up period
+- Stores one primary alert document per attack event cycle
+- Adjusts sensitivity over time using admin feedback:
+  - block lowers thresholds (more sensitive)
+  - ignore raises thresholds (less sensitive)
 
-Once MVP works, add JWT, roles, and AI layer.
+## Troubleshooting
+
+If npm run dev fails in either app:
+
+1. Confirm dependencies are installed in both folders.
+2. Ensure server/.env exists and contains valid values.
+3. Confirm MongoDB is reachable from MONGO_URI.
+4. Use Node.js 20+.
+5. Check port conflicts on 5000 and 5173.
+
+Quick health checks:
+
+```bash
+# backend base route
+curl http://localhost:5000/
+```
+
+If frontend cannot authenticate:
+
+- Verify CLIENT_URL in server/.env matches frontend URL
+- Ensure backend is running before logging in
+
+## Security Recommendations
+
+- Rotate any exposed credentials immediately
+- Use long random JWT secrets
+- Keep production cookies secure with HTTPS
+- Add CI checks (lint, test, npm audit) before deployment
+
+## Future Improvements
+
+- Docker and docker-compose for one-command local startup
+- Automated tests (unit + integration)
+- CI/CD pipeline with quality gates
+- Alert notification channels (email/Slack)
+- Multi-tenant org/user support
+
+## License
+
+MIT (or update this section with your preferred license).
