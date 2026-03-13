@@ -1,4 +1,3 @@
-Markdown
 # 🛡️ Sentinel Stream IDS
 
 > **A real-time Intrusion Detection System demonstrating full-stack security engineering, from network anomaly detection to forensics-ready incident response.**
@@ -40,12 +39,12 @@ Mark alerts as **"Blocked"** (confirmed threat) or **"Ignored"** (false positive
 
 | Layer | Technologies |
 | :--- | :--- |
-| **🎨 Frontend** | React 19, Vite, Tailwind CSS, Recharts, Socket.IO Client |
-| **⚙️ Backend** | Node.js 20, Express, Socket.IO, Mongoose |
-| **🔐 Security** | JWT (Access + Refresh), bcryptjs, Helmet, Rate-limiting |
-| **📊 Database** | MongoDB (Atlas in Cloud, Local in Docker) |
-| **🧠 Detection** | Rolling statistics, EWMA, Z-score, Adaptive thresholds |
-| **🐳 Deployment** | Docker, Docker Compose, Render |
+| 🎨 Frontend | React 19, Vite, Tailwind CSS, Recharts, Socket.IO Client |
+| ⚙️ Backend | Node.js 20, Express, Socket.IO, Mongoose |
+| 🔐 Security | JWT (Access + Refresh), bcryptjs, Helmet, Rate-limiting |
+| 📊 Database | MongoDB (Atlas in Cloud, Local in Docker) |
+| 🧠 Detection | Rolling statistics, EWMA, Z-score, Adaptive thresholds |
+| 🐳 Deployment | Docker, Docker Compose, Render |
 
 ---
 
@@ -59,18 +58,24 @@ Mark alerts as **"Blocked"** (confirmed threat) or **"Ignored"** (false positive
 ```bash
 # From project root
 cp .env.docker.example .env.docker
-Edit .env.docker with your MONGO_URI and JWT_SECRETS.
+```
 
-2️⃣ Start Services
-Bash
+Edit `.env.docker` with your **MONGO_URI** and **JWT_SECRETS**.
+
+### 2️⃣ Start Services
+```bash
 docker-compose --env-file .env.docker up -d
-3️⃣ Access the System
-Frontend: http://localhost:3000
+```
 
+### 3️⃣ Access the System
+Frontend: http://localhost:3000  
 Backend API: http://localhost:5000
 
-🏗️ Architecture
-Plaintext
+---
+
+## 🏗️ Architecture
+
+```
 ┌─────────────────────────────────────────┐
 │      React Dashboard (localhost:3000)   │
 │  • Live charts (rate, bandwidth, conns) │
@@ -91,34 +96,44 @@ Plaintext
 │      MongoDB Atlas / Local Docker       │
 │  • Users, TrafficLogs, Alerts, Blocks   │
 └─────────────────────────────────────────┘
-🔍 Detection Engine: How It Works
-📏 DDoS Detection
-Plaintext
+```
+
+---
+
+## 🔍 Detection Engine: How It Works
+
+### 📏 DDoS Detection
+```
 Baseline avg rate: 300 pkt/s
 Spike to:         1,500 pkt/s
 Ratio:            5× baseline
 Result:           🚨 ALERT (High Severity)
-🔨 Brute-Force Detection (Login Security)
-Rule: 10 failed JWT logins from the same IP in 30 seconds.
+```
+
+### 🔨 Brute-Force Detection (Login Security)
+Rule: **10 failed JWT logins from the same IP in 30 seconds.**
 
 Action: IP auto-blacklisted and logged to MongoDB.
 
-Admin Control: Manual "Unblock" available via Security Ops modal.
+Admin Control: Manual **"Unblock"** available via Security Ops modal.
 
-🛡️ Security & Hardening
-JWT Auth: Access Token (15m) + HTTP-only Refresh Token (7d).
+---
 
-Hardening: Helmet headers, Rate-limiting, and Input Validation.
+## 🛡️ Security & Hardening
 
-Role-Based Access (RBAC): Admin-only forensics and IP management.
+* **JWT Auth:** Access Token (15m) + HTTP-only Refresh Token (7d).
+* **Hardening:** Helmet headers, Rate-limiting, and Input Validation.
+* **Role-Based Access (RBAC):** Admin-only forensics and IP management.
 
-🚀 Roadmap
-[ ] 📧 Email/Slack alert notifications.
+---
 
-[ ] 🗺️ Geo-IP heatmaps for attack visualization.
+## 🚀 Roadmap
 
-[ ] 🤖 Advanced ML models (Isolation Forest).
+- [ ] 📧 Email/Slack alert notifications.
+- [ ] 🗺️ Geo-IP heatmaps for attack visualization.
+- [ ] 🤖 Advanced ML models (Isolation Forest).
+- [ ] 🏗️ Kubernetes manifests for scaling.
 
-[ ] 🏗️ Kubernetes manifests for scaling.
+---
 
 Built with security engineering principles in mind. 🛡️
